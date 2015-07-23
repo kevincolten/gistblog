@@ -115,7 +115,7 @@ module.exports = Backbone.Controller.extend({
   index: function() {
     this.collection.fetch();
     var PostsListView = React.createFactory(PostsListComponent);
-    React.render(PostsListView({ collection: this.collection }), document.getElementById('content'));
+    React.render(PostsListView({ collection: this.collection }), $('#content')[0]);
   },
 
   show: function(id) {
@@ -125,7 +125,7 @@ module.exports = Backbone.Controller.extend({
     }
     post.fetch();
     var PostView = React.createFactory(PostComponent);
-    React.render(PostView({ model: post }), document.getElementById('content'));
+    React.render(PostView({ model: post }), $('#content')[0]);
   }
 });
 

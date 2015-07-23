@@ -9,6 +9,8 @@ var gutil = require('gulp-util');
 var sourcemaps = require('gulp-sourcemaps');
 var assign = require('lodash.assign');
 var reactify = require('reactify');
+var uglify = require('gulp-uglify');
+var rename = require('gulp-rename');
 
 // add custom browserify options here
 var customOpts = {

@@ -38,3 +38,11 @@ function bundle() {
 
     .pipe(gulp.dest('./')); // destination of bundle.js
 }
+
+// optimize javascript
+gulp.task('uglify', function() {
+  return gulp.src('bundle.js')
+    .pipe(uglify())
+    .pipe(rename('bundle.min.js'))
+    .pipe(gulp.dest('./'));
+});

@@ -98,6 +98,7 @@ var PostComponent = require('../components/PostComponent');
 var PostsListComponent = require('../components/PostsListComponent');
 var PostsCollection = require('../collections/PostsCollection');
 var PostModel = require('../models/PostModel');
+var $ = require('jquery');
 
 module.exports = Backbone.Controller.extend({
   routes: {
@@ -128,7 +129,7 @@ module.exports = Backbone.Controller.extend({
   }
 });
 
-},{"../collections/PostsCollection":2,"../components/PostComponent":3,"../components/PostsListComponent":5,"../models/PostModel":7,"backbone":9,"backbone.controller":8,"react":168}],7:[function(require,module,exports){
+},{"../collections/PostsCollection":2,"../components/PostComponent":3,"../components/PostsListComponent":5,"../models/PostModel":7,"backbone":9,"backbone.controller":8,"jquery":11,"react":168}],7:[function(require,module,exports){
 var Backbone = require('backbone');
 var marked = require('marked');
 

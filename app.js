@@ -1,6 +1,7 @@
 'use strict';
 
 var Backbone = require('backbone');
+var $ = require('jquery');
 var React = require('react');
 var PostsController = require('./controllers/PostsController');
 var NavComponent = require('./components/NavComponent');
@@ -16,7 +17,7 @@ var Application = Backbone.Router.extend({
 
   insertNav: function() {
     var NavView = React.createFactory(NavComponent);
-    React.render(NavView({ collection: this.collection }), document.getElementById('nav'));
+    React.render(NavView({ collection: this.collection }), $('#nav')[0]);
   }
 });
 

@@ -2,6 +2,7 @@
 'use strict';
 
 var Backbone = require('backbone');
+var $ = require('jquery');
 var React = require('react');
 var PostsController = require('./controllers/PostsController');
 var NavComponent = require('./components/NavComponent');
@@ -17,13 +18,13 @@ var Application = Backbone.Router.extend({
 
   insertNav: function() {
     var NavView = React.createFactory(NavComponent);
-    React.render(NavView({ collection: this.collection }), document.getElementById('nav'));
+    React.render(NavView({ collection: this.collection }), $('#nav')[0]);
   }
 });
 
 window.app = new Application();
 
-},{"./components/NavComponent":3,"./controllers/PostsController":7,"backbone":10,"react":297}],2:[function(require,module,exports){
+},{"./components/NavComponent":3,"./controllers/PostsController":7,"backbone":10,"jquery":139,"react":297}],2:[function(require,module,exports){
 var Backbone = require('backbone');
 var _ = require('underscore');
 var PostModel = require('../models/PostModel');

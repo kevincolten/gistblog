@@ -9,6 +9,8 @@ var gutil = require('gulp-util');
 var sourcemaps = require('gulp-sourcemaps');
 var assign = require('lodash.assign');
 var reactify = require('reactify');
+var uglify = require('gulp-uglify');
+var rename = require('gulp-rename');
 
 // add custom browserify options here
 var customOpts = {
@@ -38,3 +40,11 @@ function bundle() {
 
     .pipe(gulp.dest('./')); // destination of bundle.js
 }
+
+// optimize javascript
+gulp.task('uglify', function() {
+  return gulp.src('bundle.js')
+    .pipe(uglify())
+    .pipe(rename('bundle.min.js'))
+    .pipe(gulp.dest('./'));
+});

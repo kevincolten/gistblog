@@ -1,16 +1,18 @@
-require('backbone')
+var Backbone = require('backbone');
 var React = require('react');
-require('react.backbone');
+require('backbone-react-component');
 var moment = require('moment');
 
-module.exports = React.createBackboneClass({
+module.exports = React.createClass({
+  mixins: [Backbone.React.Component.mixin],
+
   render: function () {
     return (
       <div className="row">
         <div className="twelve columns">
-            <h6>{ moment(this.props.model.get('created_at')).format("MMM Do, YYYY") }</h6>
+            <h6>{ moment(this.props.model.created_at).format("MMM Do, YYYY") }</h6>
             <h5>
-              <a href={ "#posts/" + this.props.model.id}>{this.props.model.get('description')}</a>
+              <a href={ "#posts/" + this.props.model.id}>{this.props.model.description}</a>
             </h5>
         </div>
       </div>

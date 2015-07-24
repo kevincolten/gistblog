@@ -1,9 +1,9 @@
-require('backbone')
+var Backbone = require('backbone');
 var React = require('react');
-require('react.backbone');
+require('backbone-react-component');
 
-module.exports = React.createBackboneClass({
-  mixins: [],
+module.exports = React.createClass({
+  mixins: [Backbone.React.Component.mixin],
 
   render: function() {
     return (

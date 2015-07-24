@@ -1,13 +1,13 @@
-require('backbone')
+var Backbone = require('backbone');
 var React = require('react');
-require('react.backbone');
+require('backbone-react-component');
 var PostItemComponent = require('./PostItemComponent');
 
-module.exports = React.createBackboneClass({
-  mixins: [],
+module.exports = React.createClass({
+  mixins: [Backbone.React.Component.mixin],
 
   render: function() {
-    var postItems = this.props.collection.map(function(postItem) {
+    var postItems = this.state.collection.map(function(postItem) {
       return <PostItemComponent model={postItem} />
     });
 

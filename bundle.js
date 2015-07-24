@@ -125,7 +125,7 @@ module.exports = Backbone.Controller.extend({
       post = new PostModel({ id: id });
     }
     post.fetch();
-    React.render(React.createElement(PostsListComponent, {model: post}), $('#content')[0]);
+    React.render(React.createElement(PostComponent, {model: post}), $('#content')[0]);
   }
 });
 

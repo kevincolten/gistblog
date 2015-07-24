@@ -1,13 +1,14 @@
-require('backbone')
+var Backbone = require('backbone')
 var React = require('react');
-require('react.backbone');
+require('backbone-react-component');
 
-module.exports = React.createBackboneClass({
+module.exports = React.createClass({
+  mixins: [Backbone.React.Component.mixin],
   render: function () {
     return (
       <div>
         <h3>
-          <a href={ "#posts/" + this.props.model.id}>{this.props.model.get('description')}</a>
+          <a href={ "#posts/" + this.props.model.id}>{this.props.model.description}</a>
         </h3>
       </div>
     );

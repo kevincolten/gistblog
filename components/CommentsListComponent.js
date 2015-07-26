@@ -2,20 +2,22 @@ var Backbone = require('backbone');
 var React = require('react');
 var _ = require('underscore');
 require('backbone-react-component');
-var PostItemComponent = require('./PostItemComponent');
+var CommentItemComponent = require('./CommentItemComponent');
 
 module.exports = React.createClass({
   mixins: [Backbone.React.Component.mixin],
 
   render: function() {
-    var postItems = _.map(this.state.collection, function (postItem) {
-      return <PostItemComponent model={postItem} />
+    var commentItems = this.props.collection.map(function (commentItem) {
+      return <CommentItemComponent model={commentItem} />
     });
 
     return (
       <div>
-        <h1>Posts</h1>
-        {postItems}
+        <h3>Comments</h3>
+        <ul>
+          {commentItems}
+        </ul>
       </div>
     );
   }

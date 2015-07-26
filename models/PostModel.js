@@ -1,9 +1,15 @@
 var Backbone = require('backbone');
+require('backbone-relational');
 var marked = require('marked');
+var CommentsCollection = require('../collections/CommentsCollection');
 
 module.exports = Backbone.Model.extend({
   urlRoot: 'https://api.github.com/gists/',
   idAttribute: 'id',
+
+  defaults: {
+    post_comments: new CommentsCollection()
+  },
 
   parse: function(model)
   {

@@ -12,4 +12,4 @@ var Application = Backbone.Router.extend({
   }
 });
 
-window.app = new Application();
+new Application();

@@ -2,11 +2,13 @@ var React = require('react');
 var Backbone = require('backbone');
 require('backbone-react-component');
 var moment = require('moment');
+var CommentsListComponent = require('./CommentsListComponent');
 
 module.exports = React.createClass({
   mixins: [Backbone.React.Component.mixin],
 
   render: function() {
+    var comments = this.state.model.post_comments;
     return (
       <div className="container">
         <div className="row">
@@ -20,6 +22,7 @@ module.exports = React.createClass({
                 <div dangerouslySetInnerHTML={{__html: this.state.model.content}}></div>
             </div>
         </div>
+        <CommentsListComponent collection={comments} post={this.state.model} />
       </div>
     );
   }

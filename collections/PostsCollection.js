@@ -8,10 +8,8 @@ module.exports = Backbone.Collection.extend({
 
   parse: function(collection)
   {
-    collection = _.filter(collection, function (model) {
+    return _.filter(collection, function (model) {
       return model.description.indexOf('@post ') > -1;
     });
-
-    return collection;
   }
 });

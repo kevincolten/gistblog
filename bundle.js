@@ -22,9 +22,18 @@ var Application = Backbone.Router.extend({
   }
 });
 
-window.app = new Application();
+new Application();
 
-},{"./components/NavComponent":3,"./controllers/PostsController":7,"backbone":11,"jquery":140,"react":297}],2:[function(require,module,exports){
+},{"./components/NavComponent":6,"./controllers/PostsController":10,"backbone":16,"jquery":145,"react":302}],2:[function(require,module,exports){
+var Backbone = require('backbone');
+var CommentModel = require('../models/CommentModel');
+
+module.exports = Backbone.Collection.extend({
+  url: 'https://api.github.com/gists/{gist_id}/comments',
+  model: CommentModel
+});
+
+},{"../models/CommentModel":11,"backbone":16}],3:[function(require,module,exports){
 var Backbone = require('backbone');
 var _ = require('underscore');
 var PostModel = require('../models/PostModel');
@@ -35,15 +44,57 @@ module.exports = Backbone.Collection.extend({
 
   parse: function(collection)
   {
-    collection = _.filter(collection, function (model) {
+    return _.filter(collection, function (model) {
       return model.description.indexOf('@post ') > -1;
     });
-
-    return collection;
   }
 });
 
-},{"../models/PostModel":8,"backbone":11,"underscore":298}],3:[function(require,module,exports){
+},{"../models/PostModel":12,"backbone":16,"underscore":303}],4:[function(require,module,exports){
+var Backbone = require('backbone')
+var React = require('react');
+require('backbone-react-component');
+
+module.exports = React.createClass({displayName: "exports",
+  mixins: [Backbone.React.Component.mixin],
+  render: function ()
+  {
+    return (
+      React.createElement("li", null, 
+        React.createElement("p", {dangerouslySetInnerHTML: {__html: this.props.model.get('body')}})
+      )
+    );
+  }
+});
+
+},{"backbone":16,"backbone-react-component":13,"react":302}],5:[function(require,module,exports){
+var Backbone = require('backbone');
+var React = require('react');
+var _ = require('underscore');
+require('backbone-react-component');
+var CommentItemComponent = require('./CommentItemComponent');
+var CommentModel = require('../models/CommentModel');
+
+module.exports = React.createClass({displayName: "exports",
+  mixins: [Backbone.React.Component.mixin],
+
+  render: function() {
+    var commentItems = this.props.collection.map(function (commentItem) {
+      return React.createElement(CommentItemComponent, {model: commentItem})
+    });
+
+    return (
+      React.createElement("div", null, 
+        React.createElement("h3", null, "Comments"), 
+        React.createElement("ul", null, 
+          commentItems
+        )
+      )
+    );
+  }
+});
+
+},{"../models/CommentModel":11,"./CommentItemComponent":4,"backbone":16,"backbone-react-component":13,"react":302,"underscore":303}],6:[function(require,module,exports){
 var Backbone = require('backbone');
 var React = require('react');
 require('backbone-react-component');
@@ -67,16 +118,18 @@ module.exports = React.createClass({displayName: "exports",
   }
 });
 
-},{"backbone":11,"backbone-react-component":9,"react":297}],4:[function(require,module,exports){
+},{"backbone":16,"backbone-react-component":13,"react":302}],7:[function(require,module,exports){
 var React = require('react');
 var Backbone = require('backbone');
 require('backbone-react-component');
 var moment = require('moment');
+var CommentsListComponent = require('./CommentsListComponent');
 
 module.exports = React.createClass({displayName: "exports",
   mixins: [Backbone.React.Component.mixin],
 
   render: function() {
+    var comments = this.state.model.post_comments;
     return (
       React.createElement("div", {className: "container"}, 
         React.createElement("div", {className: "row"}, 
@@ -89,13 +142,14 @@ module.exports = React.createClass({displayName: "exports",
             React.createElement("div", {className: "twelve columns"}, 
                 React.createElement("div", {dangerouslySetInnerHTML: {__html: this.state.model.content}})
             )
-        )
+        ), 
+        React.createElement(CommentsListComponent, {collection: comments, post: this.state.model})
       )
     );
   }
 });
 
-},{"backbone":11,"backbone-react-component":9,"moment":142,"react":297}],5:[function(require,module,exports){
+},{"./CommentsListComponent":5,"backbone":16,"backbone-react-component":13,"moment":147,"react":302}],8:[function(require,module,exports){
 var Backbone = require('backbone');
 var React = require('react');
 require('backbone-react-component');
@@ -118,9 +172,10 @@ module.exports = React.createClass({displayName: "exports",
   }
 });
 
-},{"backbone":11,"backbone-react-component":9,"moment":142,"react":297}],6:[function(require,module,exports){
+},{"backbone":16,"backbone-react-component":13,"moment":147,"react":302}],9:[function(require,module,exports){
 var Backbone = require('backbone');
 var React = require('react');
+var _ = require('underscore');
 require('backbone-react-component');
 var PostItemComponent = require('./PostItemComponent');
 
@@ -128,7 +183,7 @@ module.exports = React.createClass({displayName: "exports",
   mixins: [Backbone.React.Component.mixin],
 
   render: function() {
-    var postItems = this.state.collection.map(function(postItem) {
+    var postItems = _.map(this.state.collection, function (postItem) {
       return React.createElement(PostItemComponent, {model: postItem})
     });
 
@@ -145,7 +200,7 @@ module.exports = React.createClass({displayName: "exports",
   }
 });
 
-},{"./PostItemComponent":5,"backbone":11,"backbone-react-component":9,"react":297}],7:[function(require,module,exports){
+},{"./PostItemComponent":8,"backbone":16,"backbone-react-component":13,"react":302,"underscore":303}],10:[function(require,module,exports){
 var Backbone = require('backbone');
 var React = require('react');
 require('backbone.controller');
@@ -177,18 +232,53 @@ module.exports = Backbone.Controller.extend({
     if (!post) {
       post = new PostModel({ id: id });
     }
-    post.fetch();
-    React.render(React.createElement(PostComponent, {model: post}), $('#content')[0]);
+    post.fetch({
+      success: function() {
+        var postComments = post.get('post_comments');
+        postComments.url = postComments.url.replace('{gist_id}', id);
+        postComments.fetch({
+          success: function() {
+            React.render(React.createElement(PostComponent, {model: post}), $('#content')[0]);
+          }
+        });
+      }
+    });
   }
 });
 
-},{"../collections/PostsCollection":2,"../components/PostComponent":4,"../components/PostsListComponent":6,"../models/PostModel":8,"backbone":11,"backbone.controller":10,"jquery":140,"react":297}],8:[function(require,module,exports){
+},{"../collections/PostsCollection":3,"../components/PostComponent":7,"../components/PostsListComponent":9,"../models/PostModel":12,"backbone":16,"backbone.controller":15,"jquery":145,"react":302}],11:[function(require,module,exports){
 var Backbone = require('backbone');
+require('backbone-relational');
 var marked = require('marked');
+
+module.exports = Backbone.Model.extend({
+  url: 'https://api.github.com/gists/{gist_id}/comments',
+  idAttribute: 'id',
+
+  parse: function(model) {
+    marked.setOptions({
+      highlight: function (code) {
+        return require('highlight.js').highlightAuto(code).value;
+      }
+    });
+    model.body = marked(model.body, { sanitize: true });
+    return model;
+  }
+});
+
+},{"backbone":16,"backbone-relational":14,"highlight.js":19,"marked":146}],12:[function(require,module,exports){
+var Backbone = require('backbone');
+require('backbone-relational');
+var marked = require('marked');
+var CommentsCollection = require('../collections/CommentsCollection');
 
 module.exports = Backbone.Model.extend({
   urlRoot: 'https://api.github.com/gists/',
   idAttribute: 'id',
+
+  defaults: {
+    post_comments: new CommentsCollection()
+  },
 
   parse: function(model)
   {
@@ -206,7 +296,7 @@ module.exports = Backbone.Model.extend({
   }
 });
 
-},{"backbone":11,"highlight.js":14,"marked":141}],9:[function(require,module,exports){
+},{"../collections/CommentsCollection":2,"backbone":16,"backbone-relational":14,"highlight.js":19,"marked":146}],13:[function(require,module,exports){
 // Backbone React Component
 // ========================
 //
@@ -549,7 +639,2089 @@ module.exports = Backbone.Model.extend({
 }));
 // <a href="https://github.com/magalhas/backbone-react-component"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://github-camo.global.ssl.fastly.net/38ef81f8aca64bb9a64448d0d70f1308ef5341ab/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f6461726b626c75655f3132313632312e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png"></a>
 
-},{"backbone":11,"react":297,"underscore":298}],10:[function(require,module,exports){
+},{"backbone":16,"react":302,"underscore":303}],14:[function(require,module,exports){
+/* vim: set tabstop=4 softtabstop=4 shiftwidth=4 noexpandtab: */
+/**
+ * Backbone-relational.js 0.10.0-beta.0
+ * (c) 2011-2014 Paul Uithol and contributors (https://github.com/PaulUithol/Backbone-relational/graphs/contributors)
+ *
+ * Backbone-relational may be freely distributed under the MIT license; see the accompanying LICENSE.txt.
+ * For details and documentation: https://github.com/PaulUithol/Backbone-relational.
+ * Depends on Backbone (and thus on Underscore as well): https://github.com/documentcloud/backbone.
+ *
+ * Example:
+ *
+	Zoo = Backbone.RelationalModel.extend({
+		relations: [ {
+			type: Backbone.HasMany,
+			key: 'animals',
+			relatedModel: 'Animal',
+			reverseRelation: {
+				key: 'livesIn',
+				includeInJSON: 'id'
+				// 'relatedModel' is automatically set to 'Zoo'; the 'relationType' to 'HasOne'.
+			}
+		} ],
+
+		toString: function() {
+			return this.get( 'name' );
+		}
+	});
+
+	Animal = Backbone.RelationalModel.extend({
+		toString: function() {
+			return this.get( 'species' );
+		}
+	});
+
+	// Creating the zoo will give it a collection with one animal in it: the monkey.
+	// The animal created after that has a relation `livesIn` that points to the zoo it's currently associated with.
+	// If you instantiate (or fetch) the zebra later, it will automatically be added.
+
+	var zoo = new Zoo({
+		name: 'Artis',
+		animals: [ { id: 'monkey-1', species: 'Chimp' }, 'lion-1', 'zebra-1' ]
+	});
+
+	var lion = new Animal( { id: 'lion-1', species: 'Lion' } ),
+		monkey = zoo.get( 'animals' ).first(),
+		sameZoo = lion.get( 'livesIn' );
+ */
+( function( root, factory ) {
+	// Set up Backbone-relational for the environment. Start with AMD.
+	if ( typeof define === 'function' && define.amd ) {
+		define( [ 'exports', 'backbone', 'underscore' ], factory );
+	}
+	// Next for Node.js or CommonJS.
+	else if ( typeof exports !== 'undefined' ) {
+		factory( exports, require( 'backbone' ), require( 'underscore' ) );
+	}
+	// Finally, as a browser global. Use `root` here as it references `window`.
+	else {
+		factory( root, root.Backbone, root._ );
+	}
+}( this, function( exports, Backbone, _ ) {
+	"use strict";
+
+	Backbone.Relational = {
+		showWarnings: true
+	};
+
+	/**
+	 * Semaphore mixin; can be used as both binary and counting.
+	 **/
+	Backbone.Semaphore = {
+		_permitsAvailable: null,
+		_permitsUsed: 0,
+
+		acquire: function() {
+			if ( this._permitsAvailable && this._permitsUsed >= this._permitsAvailable ) {
+				throw new Error( 'Max permits acquired' );
+			}
+			else {
+				this._permitsUsed++;
+			}
+		},
+
+		release: function() {
+			if ( this._permitsUsed === 0 ) {
+				throw new Error( 'All permits released' );
+			}
+			else {
+				this._permitsUsed--;
+			}
+		},
+
+		isLocked: function() {
+			return this._permitsUsed > 0;
+		},
+
+		setAvailablePermits: function( amount ) {
+			if ( this._permitsUsed > amount ) {
+				throw new Error( 'Available permits cannot be less than used permits' );
+			}
+			this._permitsAvailable = amount;
+		}
+	};
+
+	/**
+	 * A BlockingQueue that accumulates items while blocked (via 'block'),
+	 * and processes them when unblocked (via 'unblock').
+	 * Process can also be called manually (via 'process').
+	 */
+	Backbone.BlockingQueue = function() {
+		this._queue = [];
+	};
+	_.extend( Backbone.BlockingQueue.prototype, Backbone.Semaphore, {
+		_queue: null,
+
+		add: function( func ) {
+			if ( this.isBlocked() ) {
+				this._queue.push( func );
+			}
+			else {
+				func();
+			}
+		},
+
+		// Some of the queued events may trigger other blocking events. By
+		// copying the queue here it allows queued events to process closer to
+		// the natural order.
+		//
+		// queue events [ 'A', 'B', 'C' ]
+		// A handler of 'B' triggers 'D' and 'E'
+		// By copying `this._queue` this executes:
+		// [ 'A', 'B', 'D', 'E', 'C' ]
+		// The same order the would have executed if they didn't have to be
+		// delayed and queued.
+		process: function() {
+			var queue = this._queue;
+			this._queue = [];
+			while ( queue && queue.length ) {
+				queue.shift()();
+			}
+		},
+
+		block: function() {
+			this.acquire();
+		},
+
+		unblock: function() {
+			this.release();
+			if ( !this.isBlocked() ) {
+				this.process();
+			}
+		},
+
+		isBlocked: function() {
+			return this.isLocked();
+		}
+	});
+	/**
+	 * Global event queue. Accumulates external events ('add:<key>', 'remove:<key>' and 'change:<key>')
+	 * until the top-level object is fully initialized (see 'Backbone.RelationalModel').
+	 */
+	Backbone.Relational.eventQueue = new Backbone.BlockingQueue();
+
+	/**
+	 * Backbone.Store keeps track of all created (and destruction of) Backbone.RelationalModel.
+	 * Handles lookup for relations.
+	 */
+	Backbone.Store = function() {
+		this._collections = [];
+		this._reverseRelations = [];
+		this._orphanRelations = [];
+		this._subModels = [];
+		this._modelScopes = [ exports ];
+	};
+	_.extend( Backbone.Store.prototype, Backbone.Events, {
+		/**
+		 * Create a new `Relation`.
+		 * @param {Backbone.RelationalModel} [model]
+		 * @param {Object} relation
+		 * @param {Object} [options]
+		 */
+		initializeRelation: function( model, relation, options ) {
+			var type = !_.isString( relation.type ) ? relation.type : Backbone[ relation.type ] || this.getObjectByName( relation.type );
+			if ( type && type.prototype instanceof Backbone.Relation ) {
+				var rel = new type( model, relation, options ); // Also pushes the new Relation into `model._relations`
+			}
+			else {
+				Backbone.Relational.showWarnings && typeof console !== 'undefined' && console.warn( 'Relation=%o; missing or invalid relation type!', relation );
+			}
+		},
+
+		/**
+		 * Add a scope for `getObjectByName` to look for model types by name.
+		 * @param {Object} scope
+		 */
+		addModelScope: function( scope ) {
+			this._modelScopes.push( scope );
+		},
+
+		/**
+		 * Remove a scope.
+		 * @param {Object} scope
+		 */
+		removeModelScope: function( scope ) {
+			this._modelScopes = _.without( this._modelScopes, scope );
+		},
+
+		/**
+		 * Add a set of subModelTypes to the store, that can be used to resolve the '_superModel'
+		 * for a model later in 'setupSuperModel'.
+		 *
+		 * @param {Backbone.RelationalModel} subModelTypes
+		 * @param {Backbone.RelationalModel} superModelType
+		 */
+		addSubModels: function( subModelTypes, superModelType ) {
+			this._subModels.push({
+				'superModelType': superModelType,
+				'subModels': subModelTypes
+			});
+		},
+
+		/**
+		 * Check if the given modelType is registered as another model's subModel. If so, add it to the super model's
+		 * '_subModels', and set the modelType's '_superModel', '_subModelTypeName', and '_subModelTypeAttribute'.
+		 *
+		 * @param {Backbone.RelationalModel} modelType
+		 */
+		setupSuperModel: function( modelType ) {
+			_.find( this._subModels, function( subModelDef ) {
+				return _.filter( subModelDef.subModels || [], function( subModelTypeName, typeValue ) {
+					var subModelType = this.getObjectByName( subModelTypeName );
+
+					if ( modelType === subModelType ) {
+						// Set 'modelType' as a child of the found superModel
+						subModelDef.superModelType._subModels[ typeValue ] = modelType;
+
+						// Set '_superModel', '_subModelTypeValue', and '_subModelTypeAttribute' on 'modelType'.
+						modelType._superModel = subModelDef.superModelType;
+						modelType._subModelTypeValue = typeValue;
+						modelType._subModelTypeAttribute = subModelDef.superModelType.prototype.subModelTypeAttribute;
+						return true;
+					}
+				}, this ).length;
+			}, this );
+		},
+
+		/**
+		 * Add a reverse relation. Is added to the 'relations' property on model's prototype, and to
+		 * existing instances of 'model' in the store as well.
+		 * @param {Object} relation
+		 * @param {Backbone.RelationalModel} relation.model
+		 * @param {String} relation.type
+		 * @param {String} relation.key
+		 * @param {String|Object} relation.relatedModel
+		 */
+		addReverseRelation: function( relation ) {
+			var exists = _.any( this._reverseRelations, function( rel ) {
+				return _.all( relation || [], function( val, key ) {
+					return val === rel[ key ];
+				});
+			});
+
+			if ( !exists && relation.model && relation.type ) {
+				this._reverseRelations.push( relation );
+				this._addRelation( relation.model, relation );
+				this.retroFitRelation( relation );
+			}
+		},
+
+		/**
+		 * Deposit a `relation` for which the `relatedModel` can't be resolved at the moment.
+		 *
+		 * @param {Object} relation
+		 */
+		addOrphanRelation: function( relation ) {
+			var exists = _.any( this._orphanRelations, function( rel ) {
+				return _.all( relation || [], function( val, key ) {
+					return val === rel[ key ];
+				});
+			});
+
+			if ( !exists && relation.model && relation.type ) {
+				this._orphanRelations.push( relation );
+			}
+		},
+
+		/**
+		 * Try to initialize any `_orphanRelation`s
+		 */
+		processOrphanRelations: function() {
+			// Make sure to operate on a copy since we're removing while iterating
+			_.each( this._orphanRelations.slice( 0 ), function( rel ) {
+				var relatedModel = Backbone.Relational.store.getObjectByName( rel.relatedModel );
+				if ( relatedModel ) {
+					this.initializeRelation( null, rel );
+					this._orphanRelations = _.without( this._orphanRelations, rel );
+				}
+			}, this );
+		},
+
+		/**
+		 *
+		 * @param {Backbone.RelationalModel.constructor} type
+		 * @param {Object} relation
+		 * @private
+		 */
+		_addRelation: function( type, relation ) {
+			if ( !type.prototype.relations ) {
+				type.prototype.relations = [];
+			}
+			type.prototype.relations.push( relation );
+
+			_.each( type._subModels || [], function( subModel ) {
+				this._addRelation( subModel, relation );
+			}, this );
+		},
+
+		/**
+		 * Add a 'relation' to all existing instances of 'relation.model' in the store
+		 * @param {Object} relation
+		 */
+		retroFitRelation: function( relation ) {
+			var coll = this.getCollection( relation.model, false );
+			coll && coll.each( function( model ) {
+				if ( !( model instanceof relation.model ) ) {
+					return;
+				}
+
+				var rel = new relation.type( model, relation );
+			}, this );
+		},
+
+		/**
+		 * Find the Store's collection for a certain type of model.
+		 * @param {Backbone.RelationalModel} type
+		 * @param {Boolean} [create=true] Should a collection be created if none is found?
+		 * @return {Backbone.Collection} A collection if found (or applicable for 'model'), or null
+		 */
+		getCollection: function( type, create ) {
+			if ( type instanceof Backbone.RelationalModel ) {
+				type = type.constructor;
+			}
+
+			var rootModel = type;
+			while ( rootModel._superModel ) {
+				rootModel = rootModel._superModel;
+			}
+
+			var coll = _.find( this._collections, function( item ) {
+				return item.model === rootModel;
+			});
+
+			if ( !coll && create !== false ) {
+				coll = this._createCollection( rootModel );
+			}
+
+			return coll;
+		},
+
+		/**
+		 * Find a model type on one of the modelScopes by name. Names are split on dots.
+		 * @param {String} name
+		 * @return {Object}
+		 */
+		getObjectByName: function( name ) {
+			var parts = name.split( '.' ),
+				type = null;
+
+			_.find( this._modelScopes, function( scope ) {
+				type = _.reduce( parts || [], function( memo, val ) {
+					return memo ? memo[ val ] : undefined;
+				}, scope );
+
+				if ( type && type !== scope ) {
+					return true;
+				}
+			}, this );
+
+			return type;
+		},
+
+		_createCollection: function( type ) {
+			var coll;
+
+			// If 'type' is an instance, take its constructor
+			if ( type instanceof Backbone.RelationalModel ) {
+				type = type.constructor;
+			}
+
+			// Type should inherit from Backbone.RelationalModel.
+			if ( type.prototype instanceof Backbone.RelationalModel ) {
+				coll = new Backbone.Collection();
+				coll.model = type;
+
+				this._collections.push( coll );
+			}
+
+			return coll;
+		},
+
+		/**
+		 * Find the attribute that is to be used as the `id` on a given object
+		 * @param type
+		 * @param {String|Number|Object|Backbone.RelationalModel} item
+		 * @return {String|Number}
+		 */
+		resolveIdForItem: function( type, item ) {
+			var id = _.isString( item ) || _.isNumber( item ) ? item : null;
+
+			if ( id === null ) {
+				if ( item instanceof Backbone.RelationalModel ) {
+					id = item.id;
+				}
+				else if ( _.isObject( item ) ) {
+					id = item[ type.prototype.idAttribute ];
+				}
+			}
+
+			// Make all falsy values `null` (except for 0, which could be an id.. see '/issues/179')
+			if ( !id && id !== 0 ) {
+				id = null;
+			}
+
+			return id;
+		},
+
+		/**
+		 * Find a specific model of a certain `type` in the store
+		 * @param type
+		 * @param {String|Number|Object|Backbone.RelationalModel} item
+		 */
+		find: function( type, item ) {
+			var id = this.resolveIdForItem( type, item ),
+				coll = this.getCollection( type );
+
+			// Because the found object could be of any of the type's superModel
+			// types, only return it if it's actually of the type asked for.
+			if ( coll ) {
+				var obj = coll.get( id );
+
+				if ( obj instanceof type ) {
+					return obj;
+				}
+			}
+
+			return null;
+		},
+
+		/**
+		 * Add a 'model' to its appropriate collection. Retain the original contents of 'model.collection'.
+		 * @param {Backbone.RelationalModel} model
+		 */
+		register: function( model ) {
+			var coll = this.getCollection( model );
+
+			if ( coll ) {
+				var modelColl = model.collection;
+				coll.add( model );
+				model.collection = modelColl;
+			}
+		},
+
+		/**
+		 * Check if the given model may use the given `id`
+		 * @param model
+		 * @param [id]
+		 */
+		checkId: function( model, id ) {
+			var coll = this.getCollection( model ),
+				duplicate = coll && coll.get( id );
+
+			if ( duplicate && model !== duplicate ) {
+				if ( Backbone.Relational.showWarnings && typeof console !== 'undefined' ) {
+					console.warn( 'Duplicate id! Old RelationalModel=%o, new RelationalModel=%o', duplicate, model );
+				}
+
+				throw new Error( "Cannot instantiate more than one Backbone.RelationalModel with the same id per type!" );
+			}
+		},
+
+		/**
+		 * Explicitly update a model's id in its store collection
+		 * @param {Backbone.RelationalModel} model
+		 */
+		update: function( model ) {
+			var coll = this.getCollection( model );
+
+			// Register a model if it isn't yet (which happens if it was created without an id).
+			if ( !coll.contains( model ) ) {
+				this.register( model );
+			}
+
+			// This triggers updating the lookup indices kept in a collection
+			coll._onModelEvent( 'change:' + model.idAttribute, model, coll );
+
+			// Trigger an event on model so related models (having the model's new id in their keyContents) can add it.
+			model.trigger( 'relational:change:id', model, coll );
+		},
+
+		/**
+		 * Unregister from the store: a specific model, a collection, or a model type.
+		 * @param {Backbone.RelationalModel|Backbone.RelationalModel.constructor|Backbone.Collection} type
+		 */
+		unregister: function( type ) {
+			var coll,
+				models;
+
+			if ( type instanceof Backbone.Model ) {
+				coll = this.getCollection( type );
+				models = [ type ];
+			}
+			else if ( type instanceof Backbone.Collection ) {
+				coll = this.getCollection( type.model );
+				models = _.clone( type.models );
+			}
+			else {
+				coll = this.getCollection( type );
+				models = _.clone( coll.models );
+			}
+
+			_.each( models, function( model ) {
+				this.stopListening( model );
+				_.invoke( model.getRelations(), 'stopListening' );
+			}, this );
+
+
+			// If we've unregistered an entire store collection, reset the collection (which is much faster).
+			// Otherwise, remove each model one by one.
+			if ( _.contains( this._collections, type ) ) {
+				coll.reset( [] );
+			}
+			else {
+				_.each( models, function( model ) {
+					if ( coll.get( model ) ) {
+						coll.remove( model );
+					}
+					else {
+						coll.trigger( 'relational:remove', model, coll );
+					}
+				}, this );
+			}
+		},
+
+		/**
+		 * Reset the `store` to it's original state. The `reverseRelations` are kept though, since attempting to
+		 * re-initialize these on models would lead to a large amount of warnings.
+		 */
+		reset: function() {
+			this.stopListening();
+
+			// Unregister each collection to remove event listeners
+			_.each( this._collections, function( coll ) {
+				this.unregister( coll );
+			}, this );
+
+			this._collections = [];
+			this._subModels = [];
+			this._modelScopes = [ exports ];
+		}
+	});
+	Backbone.Relational.store = new Backbone.Store();
+
+	/**
+	 * The main Relation class, from which 'HasOne' and 'HasMany' inherit. Internally, 'relational:<key>' events
+	 * are used to regulate addition and removal of models from relations.
+	 *
+	 * @param {Backbone.RelationalModel} [instance] Model that this relation is created for. If no model is supplied,
+	 *      Relation just tries to instantiate it's `reverseRelation` if specified, and bails out after that.
+	 * @param {Object} options
+	 * @param {string} options.key
+	 * @param {Backbone.RelationalModel.constructor} options.relatedModel
+	 * @param {Boolean|String} [options.includeInJSON=true] Serialize the given attribute for related model(s)' in toJSON, or just their ids.
+	 * @param {Boolean} [options.createModels=true] Create objects from the contents of keys if the object is not found in Backbone.store.
+	 * @param {Object} [options.reverseRelation] Specify a bi-directional relation. If provided, Relation will reciprocate
+	 *    the relation to the 'relatedModel'. Required and optional properties match 'options', except that it also needs
+	 *    {Backbone.Relation|String} type ('HasOne' or 'HasMany').
+	 * @param {Object} opts
+	 */
+	Backbone.Relation = function( instance, options, opts ) {
+		this.instance = instance;
+		// Make sure 'options' is sane, and fill with defaults from subclasses and this object's prototype
+		options = _.isObject( options ) ? options : {};
+		this.reverseRelation = _.defaults( options.reverseRelation || {}, this.options.reverseRelation );
+		this.options = _.defaults( options, this.options, Backbone.Relation.prototype.options );
+
+		this.reverseRelation.type = !_.isString( this.reverseRelation.type ) ? this.reverseRelation.type :
+			Backbone[ this.reverseRelation.type ] || Backbone.Relational.store.getObjectByName( this.reverseRelation.type );
+
+		this.key = this.options.key;
+		this.keySource = this.options.keySource || this.key;
+		this.keyDestination = this.options.keyDestination || this.keySource || this.key;
+
+		this.model = this.options.model || this.instance.constructor;
+
+		this.relatedModel = this.options.relatedModel;
+
+		// No 'relatedModel' is interpreted as self-referential
+		if ( _.isUndefined( this.relatedModel ) ) {
+			this.relatedModel = this.model;
+		}
+
+		// Otherwise, try to resolve the given value to an object
+		if ( _.isFunction( this.relatedModel ) && !( this.relatedModel.prototype instanceof Backbone.RelationalModel ) ) {
+			this.relatedModel = _.result( this, 'relatedModel' );
+		}
+		if ( _.isString( this.relatedModel ) ) {
+			this.relatedModel = Backbone.Relational.store.getObjectByName( this.relatedModel );
+		}
+
+
+		if ( !this.checkPreconditions() ) {
+			return;
+		}
+
+		// Add the reverse relation on 'relatedModel' to the store's reverseRelations
+		if ( !this.options.isAutoRelation && this.reverseRelation.type && this.reverseRelation.key ) {
+			Backbone.Relational.store.addReverseRelation( _.defaults( {
+					isAutoRelation: true,
+					model: this.relatedModel,
+					relatedModel: this.model,
+					reverseRelation: this.options // current relation is the 'reverseRelation' for its own reverseRelation
+				},
+				this.reverseRelation // Take further properties from this.reverseRelation (type, key, etc.)
+			) );
+		}
+
+		if ( instance ) {
+			var contentKey = this.keySource;
+			if ( contentKey !== this.key && _.isObject( this.instance.get( this.key ) ) ) {
+				contentKey = this.key;
+			}
+
+			this.setKeyContents( this.instance.get( contentKey ) );
+			this.relatedCollection = Backbone.Relational.store.getCollection( this.relatedModel );
+
+			// Explicitly clear 'keySource', to prevent a leaky abstraction if 'keySource' differs from 'key'.
+			if ( this.keySource !== this.key ) {
+				delete this.instance.attributes[ this.keySource ];
+			}
+
+			// Add this Relation to instance._relations
+			this.instance._relations[ this.key ] = this;
+
+			this.initialize( opts );
+
+			if ( this.options.autoFetch ) {
+				this.instance.getAsync( this.key, _.isObject( this.options.autoFetch ) ? this.options.autoFetch : {} );
+			}
+
+			// When 'relatedModel' are created or destroyed, check if it affects this relation.
+			this.listenTo( this.instance, 'destroy', this.destroy )
+				.listenTo( this.relatedCollection, 'relational:add relational:change:id', this.tryAddRelated )
+				.listenTo( this.relatedCollection, 'relational:remove', this.removeRelated );
+		}
+	};
+	// Fix inheritance :\
+	Backbone.Relation.extend = Backbone.Model.extend;
+	// Set up all inheritable **Backbone.Relation** properties and methods.
+	_.extend( Backbone.Relation.prototype, Backbone.Events, Backbone.Semaphore, {
+		options: {
+			createModels: true,
+			includeInJSON: true,
+			isAutoRelation: false,
+			autoFetch: false,
+			parse: false
+		},
+
+		instance: null,
+		key: null,
+		keyContents: null,
+		relatedModel: null,
+		relatedCollection: null,
+		reverseRelation: null,
+		related: null,
+
+		/**
+		 * Check several pre-conditions.
+		 * @return {Boolean} True if pre-conditions are satisfied, false if they're not.
+		 */
+		checkPreconditions: function() {
+			var i = this.instance,
+				k = this.key,
+				m = this.model,
+				rm = this.relatedModel,
+				warn = Backbone.Relational.showWarnings && typeof console !== 'undefined';
+
+			if ( !m || !k || !rm ) {
+				warn && console.warn( 'Relation=%o: missing model, key or relatedModel (%o, %o, %o).', this, m, k, rm );
+				return false;
+			}
+			// Check if the type in 'model' inherits from Backbone.RelationalModel
+			if ( !( m.prototype instanceof Backbone.RelationalModel ) ) {
+				warn && console.warn( 'Relation=%o: model does not inherit from Backbone.RelationalModel (%o).', this, i );
+				return false;
+			}
+			// Check if the type in 'relatedModel' inherits from Backbone.RelationalModel
+			if ( !( rm.prototype instanceof Backbone.RelationalModel ) ) {
+				warn && console.warn( 'Relation=%o: relatedModel does not inherit from Backbone.RelationalModel (%o).', this, rm );
+				return false;
+			}
+			// Check if this is not a HasMany, and the reverse relation is HasMany as well
+			if ( this instanceof Backbone.HasMany && this.reverseRelation.type === Backbone.HasMany ) {
+				warn && console.warn( 'Relation=%o: relation is a HasMany, and the reverseRelation is HasMany as well.', this );
+				return false;
+			}
+			// Check if we're not attempting to create a relationship on a `key` that's already used.
+			if ( i && _.keys( i._relations ).length ) {
+				var existing = _.find( i._relations, function( rel ) {
+					return rel.key === k;
+				}, this );
+
+				if ( existing ) {
+					warn && console.warn( 'Cannot create relation=%o on %o for model=%o: already taken by relation=%o.',
+						this, k, i, existing );
+					return false;
+				}
+			}
+
+			return true;
+		},
+
+		/**
+		 * Set the related model(s) for this relation
+		 * @param {Backbone.Model|Backbone.Collection} related
+		 */
+		setRelated: function( related ) {
+			this.related = related;
+			this.instance.attributes[ this.key ] = related;
+		},
+
+		/**
+		 * Determine if a relation (on a different RelationalModel) is the reverse
+		 * relation of the current one.
+		 * @param {Backbone.Relation} relation
+		 * @return {Boolean}
+		 */
+		_isReverseRelation: function( relation ) {
+			return relation.instance instanceof this.relatedModel && this.reverseRelation.key === relation.key &&
+				this.key === relation.reverseRelation.key;
+		},
+
+		/**
+		 * Get the reverse relations (pointing back to 'this.key' on 'this.instance') for the currently related model(s).
+		 * @param {Backbone.RelationalModel} [model] Get the reverse relations for a specific model.
+		 *    If not specified, 'this.related' is used.
+		 * @return {Backbone.Relation[]}
+		 */
+		getReverseRelations: function( model ) {
+			var reverseRelations = [];
+			// Iterate over 'model', 'this.related.models' (if this.related is a Backbone.Collection), or wrap 'this.related' in an array.
+			var models = !_.isUndefined( model ) ? [ model ] : this.related && ( this.related.models || [ this.related ] ),
+				relations = null,
+				relation = null;
+
+			for( var i = 0; i < ( models || [] ).length; i++ ) {
+				relations = models[ i ].getRelations() || [];
+
+				for( var j = 0; j < relations.length; j++ ) {
+					relation = relations[ j ];
+
+					if ( this._isReverseRelation( relation ) ) {
+						reverseRelations.push( relation );
+					}
+				}
+			}
+
+			return reverseRelations;
+		},
+
+		/**
+		 * When `this.instance` is destroyed, cleanup our relations.
+		 * Get reverse relation, call removeRelated on each.
+		 */
+		destroy: function() {
+			this.stopListening();
+
+			if ( this instanceof Backbone.HasOne ) {
+				this.setRelated( null );
+			}
+			else if ( this instanceof Backbone.HasMany ) {
+				this.setRelated( this._prepareCollection() );
+			}
+
+			_.each( this.getReverseRelations(), function( relation ) {
+				relation.removeRelated( this.instance );
+			}, this );
+		}
+	});
+
+	Backbone.HasOne = Backbone.Relation.extend({
+		options: {
+			reverseRelation: { type: 'HasMany' }
+		},
+
+		initialize: function( opts ) {
+			this.listenTo( this.instance, 'relational:change:' + this.key, this.onChange );
+
+			var related = this.findRelated( opts );
+			this.setRelated( related );
+
+			// Notify new 'related' object of the new relation.
+			_.each( this.getReverseRelations(), function( relation ) {
+				relation.addRelated( this.instance, opts );
+			}, this );
+		},
+
+		/**
+		 * Find related Models.
+		 * @param {Object} [options]
+		 * @return {Backbone.Model}
+		 */
+		findRelated: function( options ) {
+			var related = null;
+
+			options = _.defaults( { parse: this.options.parse }, options );
+
+			if ( this.keyContents instanceof this.relatedModel ) {
+				related = this.keyContents;
+			}
+			else if ( this.keyContents || this.keyContents === 0 ) { // since 0 can be a valid `id` as well
+				var opts = _.defaults( { create: this.options.createModels }, options );
+				related = this.relatedModel.findOrCreate( this.keyContents, opts );
+			}
+
+			// Nullify `keyId` if we have a related model; in case it was already part of the relation
+			if ( related ) {
+				this.keyId = null;
+			}
+
+			return related;
+		},
+
+		/**
+		 * Normalize and reduce `keyContents` to an `id`, for easier comparison
+		 * @param {String|Number|Backbone.Model} keyContents
+		 */
+		setKeyContents: function( keyContents ) {
+			this.keyContents = keyContents;
+			this.keyId = Backbone.Relational.store.resolveIdForItem( this.relatedModel, this.keyContents );
+		},
+
+		/**
+		 * Event handler for `change:<key>`.
+		 * If the key is changed, notify old & new reverse relations and initialize the new relation.
+		 */
+		onChange: function( model, attr, options ) {
+			// Don't accept recursive calls to onChange (like onChange->findRelated->findOrCreate->initializeRelations->addRelated->onChange)
+			if ( this.isLocked() ) {
+				return;
+			}
+			this.acquire();
+			options = options ? _.clone( options ) : {};
+
+			// 'options.__related' is set by 'addRelated'/'removeRelated'. If it is set, the change
+			// is the result of a call from a relation. If it's not, the change is the result of
+			// a 'set' call on this.instance.
+			var changed = _.isUndefined( options.__related ),
+				oldRelated = changed ? this.related : options.__related;
+
+			if ( changed ) {
+				this.setKeyContents( attr );
+				var related = this.findRelated( options );
+				this.setRelated( related );
+			}
+
+			// Notify old 'related' object of the terminated relation
+			if ( oldRelated && this.related !== oldRelated ) {
+				_.each( this.getReverseRelations( oldRelated ), function( relation ) {
+					relation.removeRelated( this.instance, null, options );
+				}, this );
+			}
+
+			// Notify new 'related' object of the new relation. Note we do re-apply even if this.related is oldRelated;
+			// that can be necessary for bi-directional relations if 'this.instance' was created after 'this.related'.
+			// In that case, 'this.instance' will already know 'this.related', but the reverse might not exist yet.
+			_.each( this.getReverseRelations(), function( relation ) {
+				relation.addRelated( this.instance, options );
+			}, this );
+
+			// Fire the 'change:<key>' event if 'related' was updated
+			if ( !options.silent && this.related !== oldRelated ) {
+				var dit = this;
+				this.changed = true;
+				Backbone.Relational.eventQueue.add( function() {
+					dit.instance.trigger( 'change:' + dit.key, dit.instance, dit.related, options, true );
+					dit.changed = false;
+				});
+			}
+			this.release();
+		},
+
+		/**
+		 * If a new 'this.relatedModel' appears in the 'store', try to match it to the last set 'keyContents'
+		 */
+		tryAddRelated: function( model, coll, options ) {
+			if ( ( this.keyId || this.keyId === 0 ) && model.id === this.keyId ) { // since 0 can be a valid `id` as well
+				this.addRelated( model, options );
+				this.keyId = null;
+			}
+		},
+
+		addRelated: function( model, options ) {
+			// Allow 'model' to set up its relations before proceeding.
+			// (which can result in a call to 'addRelated' from a relation of 'model')
+			var dit = this;
+			model.queue( function() {
+				if ( model !== dit.related ) {
+					var oldRelated = dit.related || null;
+					dit.setRelated( model );
+					dit.onChange( dit.instance, model, _.defaults( { __related: oldRelated }, options ) );
+				}
+			});
+		},
+
+		removeRelated: function( model, coll, options ) {
+			if ( !this.related ) {
+				return;
+			}
+
+			if ( model === this.related ) {
+				var oldRelated = this.related || null;
+				this.setRelated( null );
+				this.onChange( this.instance, model, _.defaults( { __related: oldRelated }, options ) );
+			}
+		}
+	});
+
+	Backbone.HasMany = Backbone.Relation.extend({
+		collectionType: null,
+
+		options: {
+			reverseRelation: { type: 'HasOne' },
+			collectionType: Backbone.Collection,
+			collectionKey: true,
+			collectionOptions: {}
+		},
+
+		initialize: function( opts ) {
+			this.listenTo( this.instance, 'relational:change:' + this.key, this.onChange );
+
+			// Handle a custom 'collectionType'
+			this.collectionType = this.options.collectionType;
+			if ( _.isFunction( this.collectionType ) && this.collectionType !== Backbone.Collection && !( this.collectionType.prototype instanceof Backbone.Collection ) ) {
+				this.collectionType = _.result( this, 'collectionType' );
+			}
+			if ( _.isString( this.collectionType ) ) {
+				this.collectionType = Backbone.Relational.store.getObjectByName( this.collectionType );
+			}
+			if ( this.collectionType !== Backbone.Collection && !( this.collectionType.prototype instanceof Backbone.Collection ) ) {
+				throw new Error( '`collectionType` must inherit from Backbone.Collection' );
+			}
+
+			var related = this.findRelated( opts );
+			this.setRelated( related );
+		},
+
+		/**
+		 * Bind events and setup collectionKeys for a collection that is to be used as the backing store for a HasMany.
+		 * If no 'collection' is supplied, a new collection will be created of the specified 'collectionType' option.
+		 * @param {Backbone.Collection} [collection]
+		 * @return {Backbone.Collection}
+		 */
+		_prepareCollection: function( collection ) {
+			if ( this.related ) {
+				this.stopListening( this.related );
+			}
+
+			if ( !collection || !( collection instanceof Backbone.Collection ) ) {
+				var options = _.isFunction( this.options.collectionOptions ) ?
+					this.options.collectionOptions( this.instance ) : this.options.collectionOptions;
+
+				collection = new this.collectionType( null, options );
+			}
+
+			collection.model = this.relatedModel;
+
+			if ( this.options.collectionKey ) {
+				var key = this.options.collectionKey === true ? this.options.reverseRelation.key : this.options.collectionKey;
+
+				if ( collection[ key ] && collection[ key ] !== this.instance ) {
+					if ( Backbone.Relational.showWarnings && typeof console !== 'undefined' ) {
+						console.warn( 'Relation=%o; collectionKey=%s already exists on collection=%o', this, key, this.options.collectionKey );
+					}
+				}
+				else if ( key ) {
+					collection[ key ] = this.instance;
+				}
+			}
+
+			this.listenTo( collection, 'relational:add', this.handleAddition )
+				.listenTo( collection, 'relational:remove', this.handleRemoval )
+				.listenTo( collection, 'relational:reset', this.handleReset );
+
+			return collection;
+		},
+
+		/**
+		 * Find related Models.
+		 * @param {Object} [options]
+		 * @return {Backbone.Collection}
+		 */
+		findRelated: function( options ) {
+			var related = null;
+
+			options = _.defaults( { parse: this.options.parse }, options );
+
+			// Replace 'this.related' by 'this.keyContents' if it is a Backbone.Collection
+			if ( this.keyContents instanceof Backbone.Collection ) {
+				this._prepareCollection( this.keyContents );
+				related = this.keyContents;
+			}
+			// Otherwise, 'this.keyContents' should be an array of related object ids.
+			// Re-use the current 'this.related' if it is a Backbone.Collection; otherwise, create a new collection.
+			else {
+				var toAdd = [];
+
+				_.each( this.keyContents, function( attributes ) {
+					var model = null;
+
+					if ( attributes instanceof this.relatedModel ) {
+						model = attributes;
+					}
+					else {
+						// If `merge` is true, update models here, instead of during update.
+						model = ( _.isObject( attributes ) && options.parse && this.relatedModel.prototype.parse ) ?
+							this.relatedModel.prototype.parse( _.clone( attributes ), options ) : attributes;
+					}
+
+					model && toAdd.push( model );
+				}, this );
+
+				if ( this.related instanceof Backbone.Collection ) {
+					related = this.related;
+				}
+				else {
+					related = this._prepareCollection();
+				}
+
+				// By now, `parse` will already have been executed just above for models if specified.
+				// Disable to prevent additional calls.
+				related.set( toAdd, _.defaults( { parse: false }, options ) );
+			}
+
+			// Remove entries from `keyIds` that were already part of the relation (and are thus 'unchanged')
+			this.keyIds = _.difference( this.keyIds, _.pluck( related.models, 'id' ) );
+
+			return related;
+		},
+
+		/**
+		 * Normalize and reduce `keyContents` to a list of `ids`, for easier comparison
+		 * @param {String|Number|String[]|Number[]|Backbone.Collection} keyContents
+		 */
+		setKeyContents: function( keyContents ) {
+			this.keyContents = keyContents instanceof Backbone.Collection ? keyContents : null;
+			this.keyIds = [];
+
+			if ( !this.keyContents && ( keyContents || keyContents === 0 ) ) { // since 0 can be a valid `id` as well
+				// Handle cases the an API/user supplies just an Object/id instead of an Array
+				this.keyContents = _.isArray( keyContents ) ? keyContents : [ keyContents ];
+
+				_.each( this.keyContents, function( item ) {
+					var itemId = Backbone.Relational.store.resolveIdForItem( this.relatedModel, item );
+					if ( itemId || itemId === 0 ) {
+						this.keyIds.push( itemId );
+					}
+				}, this );
+			}
+		},
+
+		/**
+		 * Event handler for `change:<key>`.
+		 * If the contents of the key are changed, notify old & new reverse relations and initialize the new relation.
+		 */
+		onChange: function( model, attr, options ) {
+			options = options ? _.clone( options ) : {};
+			this.setKeyContents( attr );
+			this.changed = false;
+
+			var related = this.findRelated( options );
+			this.setRelated( related );
+
+			if ( !options.silent ) {
+				var dit = this;
+				Backbone.Relational.eventQueue.add( function() {
+					// The `changed` flag can be set in `handleAddition` or `handleRemoval`
+					if ( dit.changed ) {
+						dit.instance.trigger( 'change:' + dit.key, dit.instance, dit.related, options, true );
+						dit.changed = false;
+					}
+				});
+			}
+		},
+
+		/**
+		 * When a model is added to a 'HasMany', trigger 'add' on 'this.instance' and notify reverse relations.
+		 * (should be 'HasOne', must set 'this.instance' as their related).
+		 */
+		handleAddition: function( model, coll, options ) {
+			//console.debug('handleAddition called; args=%o', arguments);
+			options = options ? _.clone( options ) : {};
+			this.changed = true;
+
+			_.each( this.getReverseRelations( model ), function( relation ) {
+				relation.addRelated( this.instance, options );
+			}, this );
+
+			// Only trigger 'add' once the newly added model is initialized (so, has its relations set up)
+			var dit = this;
+			!options.silent && Backbone.Relational.eventQueue.add( function() {
+				dit.instance.trigger( 'add:' + dit.key, model, dit.related, options );
+			});
+		},
+
+		/**
+		 * When a model is removed from a 'HasMany', trigger 'remove' on 'this.instance' and notify reverse relations.
+		 * (should be 'HasOne', which should be nullified)
+		 */
+		handleRemoval: function( model, coll, options ) {
+			//console.debug('handleRemoval called; args=%o', arguments);
+			options = options ? _.clone( options ) : {};
+			this.changed = true;
+
+			_.each( this.getReverseRelations( model ), function( relation ) {
+				relation.removeRelated( this.instance, null, options );
+			}, this );
+
+			var dit = this;
+			!options.silent && Backbone.Relational.eventQueue.add( function() {
+				dit.instance.trigger( 'remove:' + dit.key, model, dit.related, options );
+			});
+		},
+
+		handleReset: function( coll, options ) {
+			var dit = this;
+			options = options ? _.clone( options ) : {};
+			!options.silent && Backbone.Relational.eventQueue.add( function() {
+				dit.instance.trigger( 'reset:' + dit.key, dit.related, options );
+			});
+		},
+
+		tryAddRelated: function( model, coll, options ) {
+			var item = _.contains( this.keyIds, model.id );
+
+			if ( item ) {
+				this.addRelated( model, options );
+				this.keyIds = _.without( this.keyIds, model.id );
+			}
+		},
+
+		addRelated: function( model, options ) {
+			// Allow 'model' to set up its relations before proceeding.
+			// (which can result in a call to 'addRelated' from a relation of 'model')
+			var dit = this;
+			model.queue( function() {
+				if ( dit.related && !dit.related.get( model ) ) {
+					dit.related.add( model, _.defaults( { parse: false }, options ) );
+				}
+			});
+		},
+
+		removeRelated: function( model, coll, options ) {
+			if ( this.related.get( model ) ) {
+				this.related.remove( model, options );
+			}
+		}
+	});
+
+	/**
+	 * A type of Backbone.Model that also maintains relations to other models and collections.
+	 * New events when compared to the original:
+	 *  - 'add:<key>' (model, related collection, options)
+	 *  - 'remove:<key>' (model, related collection, options)
+	 *  - 'change:<key>' (model, related model or collection, options)
+	 */
+	Backbone.RelationalModel = Backbone.Model.extend({
+		relations: null, // Relation descriptions on the prototype
+		_relations: null, // Relation instances
+		_isInitialized: false,
+		_deferProcessing: false,
+		_queue: null,
+		_attributeChangeFired: false, // Keeps track of `change` event firing under some conditions (like nested `set`s)
+
+		subModelTypeAttribute: 'type',
+		subModelTypes: null,
+
+		constructor: function( attributes, options ) {
+			// Nasty hack, for cases like 'model.get( <HasMany key> ).add( item )'.
+			// Defer 'processQueue', so that when 'Relation.createModels' is used we trigger 'HasMany'
+			// collection events only after the model is really fully set up.
+			// Example: event for "p.on( 'add:jobs' )" -> "p.get('jobs').add( { company: c.id, person: p.id } )".
+			if ( options && options.collection ) {
+				var dit = this,
+					collection = this.collection = options.collection;
+
+				// Prevent `collection` from cascading down to nested models; they shouldn't go into this `if` clause.
+				delete options.collection;
+
+				this._deferProcessing = true;
+
+				var processQueue = function( model ) {
+					if ( model === dit ) {
+						dit._deferProcessing = false;
+						dit.processQueue();
+						collection.off( 'relational:add', processQueue );
+					}
+				};
+				collection.on( 'relational:add', processQueue );
+
+				// So we do process the queue eventually, regardless of whether this model actually gets added to 'options.collection'.
+				_.defer( function() {
+					processQueue( dit );
+				});
+			}
+
+			Backbone.Relational.store.processOrphanRelations();
+			Backbone.Relational.store.listenTo( this, 'relational:unregister', Backbone.Relational.store.unregister );
+
+			this._queue = new Backbone.BlockingQueue();
+			this._queue.block();
+			Backbone.Relational.eventQueue.block();
+
+			try {
+				Backbone.Model.apply( this, arguments );
+			}
+			finally {
+				// Try to run the global queue holding external events
+				Backbone.Relational.eventQueue.unblock();
+			}
+		},
+
+		/**
+		 * Override 'trigger' to queue 'change' and 'change:*' events
+		 */
+		trigger: function( eventName ) {
+			if ( eventName.length > 5 && eventName.indexOf( 'change' ) === 0 ) {
+				var dit = this,
+					args = arguments;
+
+				if ( !Backbone.Relational.eventQueue.isBlocked() ) {
+					// If we're not in a more complicated nested scenario, fire the change event right away
+					Backbone.Model.prototype.trigger.apply( dit, args );
+				}
+				else {
+					Backbone.Relational.eventQueue.add( function() {
+						// Determine if the `change` event is still valid, now that all relations are populated
+						var changed = true;
+						if ( eventName === 'change' ) {
+							// `hasChanged` may have gotten reset by nested calls to `set`.
+							changed = dit.hasChanged() || dit._attributeChangeFired;
+							dit._attributeChangeFired = false;
+						}
+						else {
+							var attr = eventName.slice( 7 ),
+								rel = dit.getRelation( attr );
+
+							if ( rel ) {
+								// If `attr` is a relation, `change:attr` get triggered from `Relation.onChange`.
+								// These take precedence over `change:attr` events triggered by `Model.set`.
+								// The relation sets a fourth attribute to `true`. If this attribute is present,
+								// continue triggering this event; otherwise, it's from `Model.set` and should be stopped.
+								changed = ( args[ 4 ] === true );
+
+								// If this event was triggered by a relation, set the right value in `this.changed`
+								// (a Collection or Model instead of raw data).
+								if ( changed ) {
+									dit.changed[ attr ] = args[ 2 ];
+								}
+								// Otherwise, this event is from `Model.set`. If the relation doesn't report a change,
+								// remove attr from `dit.changed` so `hasChanged` doesn't take it into account.
+								else if ( !rel.changed ) {
+									delete dit.changed[ attr ];
+								}
+							}
+							else if ( changed ) {
+								dit._attributeChangeFired = true;
+							}
+						}
+
+						changed && Backbone.Model.prototype.trigger.apply( dit, args );
+					});
+				}
+			}
+			else if ( eventName === 'destroy' ) {
+				Backbone.Model.prototype.trigger.apply( this, arguments );
+				Backbone.Relational.store.unregister( this );
+			}
+			else {
+				Backbone.Model.prototype.trigger.apply( this, arguments );
+			}
+
+			return this;
+		},
+
+		/**
+		 * Initialize Relations present in this.relations; determine the type (HasOne/HasMany), then creates a new instance.
+		 * Invoked in the first call so 'set' (which is made from the Backbone.Model constructor).
+		 */
+		initializeRelations: function( options ) {
+			this.acquire(); // Setting up relations often also involve calls to 'set', and we only want to enter this function once
+			this._relations = {};
+
+			_.each( this.relations || [], function( rel ) {
+				Backbone.Relational.store.initializeRelation( this, rel, options );
+			}, this );
+
+			this._isInitialized = true;
+			this.release();
+			this.processQueue();
+		},
+
+		/**
+		 * When new values are set, notify this model's relations (also if options.silent is set).
+		 * (called from `set`; Relation.setRelated locks this model before calling 'set' on it to prevent loops)
+		 * @param {Object} [changedAttrs]
+		 * @param {Object} [options]
+		 */
+		updateRelations: function( changedAttrs, options ) {
+			if ( this._isInitialized && !this.isLocked() ) {
+				_.each( this._relations, function( rel ) {
+					if ( !changedAttrs || ( rel.keySource in changedAttrs || rel.key in changedAttrs ) ) {
+						// Fetch data in `rel.keySource` if data got set in there, or `rel.key` otherwise
+						var value = this.attributes[ rel.keySource ] || this.attributes[ rel.key ],
+							attr = changedAttrs && ( changedAttrs[ rel.keySource ] || changedAttrs[ rel.key ] );
+
+						// Update a relation if its value differs from this model's attributes, or it's been explicitly nullified.
+						// Which can also happen before the originally intended related model has been found (`val` is null).
+						if ( rel.related !== value || ( value === null && attr === null ) ) {
+							this.trigger( 'relational:change:' + rel.key, this, value, options || {} );
+						}
+					}
+
+					// Explicitly clear 'keySource', to prevent a leaky abstraction if 'keySource' differs from 'key'.
+					if ( rel.keySource !== rel.key ) {
+						delete this.attributes[ rel.keySource ];
+					}
+				}, this );
+			}
+		},
+
+		/**
+		 * Either add to the queue (if we're not initialized yet), or execute right away.
+		 */
+		queue: function( func ) {
+			this._queue.add( func );
+		},
+
+		/**
+		 * Process _queue
+		 */
+		processQueue: function() {
+			if ( this._isInitialized && !this._deferProcessing && this._queue.isBlocked() ) {
+				this._queue.unblock();
+			}
+		},
+
+		/**
+		 * Get a specific relation.
+		 * @param {string} attr The relation key to look for.
+		 * @return {Backbone.Relation} An instance of 'Backbone.Relation', if a relation was found for 'attr', or null.
+		 */
+		getRelation: function( attr ) {
+			return this._relations[ attr ];
+		},
+
+		/**
+		 * Get all of the created relations.
+		 * @return {Backbone.Relation[]}
+		 */
+		getRelations: function() {
+			return _.values( this._relations );
+		},
+
+
+		/**
+		 * Get a list of ids that will be fetched on a call to `getAsync`.
+		 * @param {string|Backbone.Relation} attr The relation key to fetch models for.
+		 * @param [refresh=false] Add ids for models that are already in the relation, refreshing them?
+		 * @return {Array} An array of ids that need to be fetched.
+		 */
+		getIdsToFetch: function( attr, refresh ) {
+			var rel = attr instanceof Backbone.Relation ? attr : this.getRelation( attr ),
+				ids = rel ? ( rel.keyIds && rel.keyIds.slice( 0 ) ) || ( ( rel.keyId || rel.keyId === 0 ) ? [ rel.keyId ] : [] ) : [];
+
+			// On `refresh`, add the ids for current models in the relation to `idsToFetch`
+			if ( refresh ) {
+				var models = rel.related && ( rel.related.models || [ rel.related ] );
+				_.each( models, function( model ) {
+					if ( model.id || model.id === 0 ) {
+						ids.push( model.id );
+					}
+				});
+			}
+
+			return ids;
+		},
+
+		/**
+		 * Get related objects. Returns a single promise, which can either resolve immediately (if the related model[s])
+		 * are already present locally, or after fetching the contents of the requested attribute.
+		 * @param {string} attr The relation key to fetch models for.
+		 * @param {Object} [options] Options for 'Backbone.Model.fetch' and 'Backbone.sync'.
+		 * @param {Boolean} [options.refresh=false] Fetch existing models from the server as well (in order to update them).
+		 * @return {jQuery.Deferred} A jQuery promise object. When resolved, its `done` callback will be called with
+		 *  contents of `attr`.
+		 */
+		getAsync: function( attr, options ) {
+			// Set default `options` for fetch
+			options = _.extend( { add: true, remove: false, refresh: false }, options );
+
+			var dit = this,
+				requests = [],
+				rel = this.getRelation( attr ),
+				idsToFetch = rel && this.getIdsToFetch( rel, options.refresh ),
+				coll = rel.related instanceof Backbone.Collection ? rel.related : rel.relatedCollection;
+
+			if ( idsToFetch && idsToFetch.length ) {
+				var models = [],
+					createdModels = [],
+					setUrl,
+					createModels = function() {
+						// Find (or create) a model for each one that is to be fetched
+						models = _.map( idsToFetch, function( id ) {
+							var model = rel.relatedModel.findModel( id );
+
+							if ( !model ) {
+								var attrs = {};
+								attrs[ rel.relatedModel.prototype.idAttribute ] = id;
+								model = rel.relatedModel.findOrCreate( attrs, options );
+								createdModels.push( model );
+							}
+
+							return model;
+						}, this );
+					};
+
+				// Try if the 'collection' can provide a url to fetch a set of models in one request.
+				// This assumes that when 'Backbone.Collection.url' is a function, it can handle building of set urls.
+				// To make sure it can, test if the url we got by supplying a list of models to fetch is different from
+				// the one supplied for the default fetch action (without args to 'url').
+				if ( coll instanceof Backbone.Collection && _.isFunction( coll.url ) ) {
+					var defaultUrl = coll.url();
+					setUrl = coll.url( idsToFetch );
+
+					if ( setUrl === defaultUrl ) {
+						createModels();
+						setUrl = coll.url( models );
+
+						if ( setUrl === defaultUrl ) {
+							setUrl = null;
+						}
+					}
+				}
+
+				if ( setUrl ) {
+					// Do a single request to fetch all models
+					var opts = _.defaults(
+						{
+							error: function() {
+								_.each( createdModels, function( model ) {
+									model.trigger( 'destroy', model, model.collection, options );
+								});
+								
+								options.error && options.error.apply( models, arguments );
+							},
+							url: setUrl
+						},
+						options
+					);
+
+					requests = [ coll.fetch( opts ) ];
+				}
+				else {
+					// Make a request per model to fetch
+					if  ( !models.length ) {
+						createModels();
+					}
+
+					requests = _.map( models, function( model ) {
+						var opts = _.defaults(
+							{
+								error: function() {
+									if ( _.contains( createdModels, model ) ) {
+										model.trigger( 'destroy', model, model.collection, options );
+									}
+									options.error && options.error.apply( models, arguments );
+								}
+							},
+							options
+						);
+						return model.fetch( opts );
+					}, this );
+				}
+			}
+
+			return this.deferArray(requests).then(
+				function() {
+					return Backbone.Model.prototype.get.call( dit, attr );
+				}
+			);
+		},
+		
+		deferArray: function(deferArray) {
+			return Backbone.$.when.apply(null, deferArray);
+		},
+
+		set: function( key, value, options ) {
+			Backbone.Relational.eventQueue.block();
+
+			// Duplicate backbone's behavior to allow separate key/value parameters, instead of a single 'attributes' object
+			var attributes,
+				result;
+
+			if ( _.isObject( key ) || key == null ) {
+				attributes = key;
+				options = value;
+			}
+			else {
+				attributes = {};
+				attributes[ key ] = value;
+			}
+
+			try {
+				var id = this.id,
+					newId = attributes && this.idAttribute in attributes && attributes[ this.idAttribute ];
+
+				// Check if we're not setting a duplicate id before actually calling `set`.
+				Backbone.Relational.store.checkId( this, newId );
+
+				result = Backbone.Model.prototype.set.apply( this, arguments );
+
+				// Ideal place to set up relations, if this is the first time we're here for this model
+				if ( !this._isInitialized && !this.isLocked() ) {
+					this.constructor.initializeModelHierarchy();
+
+					// Only register models that have an id. A model will be registered when/if it gets an id later on.
+					if ( newId || newId === 0 ) {
+						Backbone.Relational.store.register( this );
+					}
+
+					this.initializeRelations( options );
+				}
+				// The store should know about an `id` update asap
+				else if ( newId && newId !== id ) {
+					Backbone.Relational.store.update( this );
+				}
+
+				if ( attributes ) {
+					this.updateRelations( attributes, options );
+				}
+			}
+			finally {
+				// Try to run the global queue holding external events
+				Backbone.Relational.eventQueue.unblock();
+			}
+
+			return result;
+		},
+
+		clone: function() {
+			var attributes = _.clone( this.attributes );
+			if ( !_.isUndefined( attributes[ this.idAttribute ] ) ) {
+				attributes[ this.idAttribute ] = null;
+			}
+
+			_.each( this.getRelations(), function( rel ) {
+				delete attributes[ rel.key ];
+			});
+
+			return new this.constructor( attributes );
+		},
+
+		/**
+		 * Convert relations to JSON, omits them when required
+		 */
+		toJSON: function( options ) {
+			// If this Model has already been fully serialized in this branch once, return to avoid loops
+			if ( this.isLocked() ) {
+				return this.id;
+			}
+
+			this.acquire();
+			var json = Backbone.Model.prototype.toJSON.call( this, options );
+
+			if ( this.constructor._superModel && !( this.constructor._subModelTypeAttribute in json ) ) {
+				json[ this.constructor._subModelTypeAttribute ] = this.constructor._subModelTypeValue;
+			}
+
+			_.each( this._relations, function( rel ) {
+				var related = json[ rel.key ],
+					includeInJSON = rel.options.includeInJSON,
+					value = null;
+
+				if ( includeInJSON === true ) {
+					if ( related && _.isFunction( related.toJSON ) ) {
+						value = related.toJSON( options );
+					}
+				}
+				else if ( _.isString( includeInJSON ) ) {
+					if ( related instanceof Backbone.Collection ) {
+						value = related.pluck( includeInJSON );
+					}
+					else if ( related instanceof Backbone.Model ) {
+						value = related.get( includeInJSON );
+					}
+
+					// Add ids for 'unfound' models if includeInJSON is equal to (only) the relatedModel's `idAttribute`
+					if ( includeInJSON === rel.relatedModel.prototype.idAttribute ) {
+						if ( rel instanceof Backbone.HasMany ) {
+							value = value.concat( rel.keyIds );
+						}
+						else if ( rel instanceof Backbone.HasOne ) {
+							value = value || rel.keyId;
+
+							if ( !value && !_.isObject( rel.keyContents ) ) {
+								value = rel.keyContents || null;
+							}
+						}
+					}
+				}
+				else if ( _.isArray( includeInJSON ) ) {
+					if ( related instanceof Backbone.Collection ) {
+						value = [];
+						related.each( function( model ) {
+							var curJson = {};
+							_.each( includeInJSON, function( key ) {
+								curJson[ key ] = model.get( key );
+							});
+							value.push( curJson );
+						});
+					}
+					else if ( related instanceof Backbone.Model ) {
+						value = {};
+						_.each( includeInJSON, function( key ) {
+							value[ key ] = related.get( key );
+						});
+					}
+				}
+				else {
+					delete json[ rel.key ];
+				}
+
+				// In case of `wait: true`, Backbone will simply push whatever's passed into `save` into attributes.
+				// We'll want to get this information into the JSON, even if it doesn't conform to our normal
+				// expectations of what's contained in it (no model/collection for a relation, etc).
+				if ( value === null && options && options.wait ) {
+					value = related;
+				}
+
+				if ( includeInJSON ) {
+					json[ rel.keyDestination ] = value;
+				}
+
+				if ( rel.keyDestination !== rel.key ) {
+					delete json[ rel.key ];
+				}
+			});
+
+			this.release();
+			return json;
+		}
+	},
+	{
+		/**
+		 *
+		 * @param superModel
+		 * @returns {Backbone.RelationalModel.constructor}
+		 */
+		setup: function( superModel ) {
+			// We don't want to share a relations array with a parent, as this will cause problems with reverse
+			// relations. Since `relations` may also be a property or function, only use slice if we have an array.
+			this.prototype.relations = ( this.prototype.relations || [] ).slice( 0 );
+
+			this._subModels = {};
+			this._superModel = null;
+
+			// If this model has 'subModelTypes' itself, remember them in the store
+			if ( this.prototype.hasOwnProperty( 'subModelTypes' ) ) {
+				Backbone.Relational.store.addSubModels( this.prototype.subModelTypes, this );
+			}
+			// The 'subModelTypes' property should not be inherited, so reset it.
+			else {
+				this.prototype.subModelTypes = null;
+			}
+
+			// Initialize all reverseRelations that belong to this new model.
+			_.each( this.prototype.relations || [], function( rel ) {
+				if ( !rel.model ) {
+					rel.model = this;
+				}
+
+				if ( rel.reverseRelation && rel.model === this ) {
+					var preInitialize = true;
+					if ( _.isString( rel.relatedModel ) ) {
+						/**
+						 * The related model might not be defined for two reasons
+						 *  1. it is related to itself
+						 *  2. it never gets defined, e.g. a typo
+						 *  3. the model hasn't been defined yet, but will be later
+						 * In neither of these cases do we need to pre-initialize reverse relations.
+						 * However, for 3. (which is, to us, indistinguishable from 2.), we do need to attempt
+						 * setting up this relation again later, in case the related model is defined later.
+						 */
+						var relatedModel = Backbone.Relational.store.getObjectByName( rel.relatedModel );
+						preInitialize = relatedModel && ( relatedModel.prototype instanceof Backbone.RelationalModel );
+					}
+
+					if ( preInitialize ) {
+						Backbone.Relational.store.initializeRelation( null, rel );
+					}
+					else if ( _.isString( rel.relatedModel ) ) {
+						Backbone.Relational.store.addOrphanRelation( rel );
+					}
+				}
+			}, this );
+
+			return this;
+		},
+
+		/**
+		 * Create a 'Backbone.Model' instance based on 'attributes'.
+		 * @param {Object} attributes
+		 * @param {Object} [options]
+		 * @return {Backbone.Model}
+		 */
+		build: function( attributes, options ) {
+			// 'build' is a possible entrypoint; it's possible no model hierarchy has been determined yet.
+			this.initializeModelHierarchy();
+
+			// Determine what type of (sub)model should be built if applicable.
+			var model = this._findSubModelType( this, attributes ) || this;
+
+			return new model( attributes, options );
+		},
+
+		/**
+		 * Determines what type of (sub)model should be built if applicable.
+		 * Looks up the proper subModelType in 'this._subModels', recursing into
+		 * types until a match is found.  Returns the applicable 'Backbone.Model'
+		 * or null if no match is found.
+		 * @param {Backbone.Model} type
+		 * @param {Object} attributes
+		 * @return {Backbone.Model}
+		 */
+		_findSubModelType: function( type, attributes ) {
+			if ( type._subModels && type.prototype.subModelTypeAttribute in attributes ) {
+				var subModelTypeAttribute = attributes[ type.prototype.subModelTypeAttribute ];
+				var subModelType = type._subModels[ subModelTypeAttribute ];
+				if ( subModelType ) {
+					return subModelType;
+				}
+				else {
+					// Recurse into subModelTypes to find a match
+					for ( subModelTypeAttribute in type._subModels ) {
+						subModelType = this._findSubModelType( type._subModels[ subModelTypeAttribute ], attributes );
+						if ( subModelType ) {
+							return subModelType;
+						}
+					}
+				}
+			}
+
+			return null;
+		},
+
+		/**
+		 *
+		 */
+		initializeModelHierarchy: function() {
+			// Inherit any relations that have been defined in the parent model.
+			this.inheritRelations();
+
+			// If we came here through 'build' for a model that has 'subModelTypes' then try to initialize the ones that
+			// haven't been resolved yet.
+			if ( this.prototype.subModelTypes ) {
+				var resolvedSubModels = _.keys( this._subModels );
+				var unresolvedSubModels = _.omit( this.prototype.subModelTypes, resolvedSubModels );
+				_.each( unresolvedSubModels, function( subModelTypeName ) {
+					var subModelType = Backbone.Relational.store.getObjectByName( subModelTypeName );
+					subModelType && subModelType.initializeModelHierarchy();
+				});
+			}
+		},
+
+		inheritRelations: function() {
+			// Bail out if we've been here before.
+			if ( !_.isUndefined( this._superModel ) && !_.isNull( this._superModel ) ) {
+				return;
+			}
+			// Try to initialize the _superModel.
+			Backbone.Relational.store.setupSuperModel( this );
+
+			// If a superModel has been found, copy relations from the _superModel if they haven't been inherited automatically
+			// (due to a redefinition of 'relations').
+			if ( this._superModel ) {
+				// The _superModel needs a chance to initialize its own inherited relations before we attempt to inherit relations
+				// from the _superModel. You don't want to call 'initializeModelHierarchy' because that could cause sub-models of
+				// this class to inherit their relations before this class has had chance to inherit it's relations.
+				this._superModel.inheritRelations();
+				if ( this._superModel.prototype.relations ) {
+					// Find relations that exist on the '_superModel', but not yet on this model.
+					var inheritedRelations = _.filter( this._superModel.prototype.relations || [], function( superRel ) {
+						return !_.any( this.prototype.relations || [], function( rel ) {
+							return superRel.relatedModel === rel.relatedModel && superRel.key === rel.key;
+						}, this );
+					}, this );
+
+					this.prototype.relations = inheritedRelations.concat( this.prototype.relations );
+				}
+			}
+			// Otherwise, make sure we don't get here again for this type by making '_superModel' false so we fail the
+			// isUndefined/isNull check next time.
+			else {
+				this._superModel = false;
+			}
+		},
+
+		/**
+		 * Find an instance of `this` type in 'Backbone.Relational.store'.
+		 * A new model is created if no matching model is found, `attributes` is an object, and `options.create` is true.
+		 * - If `attributes` is a string or a number, `findOrCreate` will query the `store` and return a model if found.
+		 * - If `attributes` is an object and is found in the store, the model will be updated with `attributes` unless `options.merge` is `false`.
+		 * @param {Object|String|Number} attributes Either a model's id, or the attributes used to create or update a model.
+		 * @param {Object} [options]
+		 * @param {Boolean} [options.create=true]
+		 * @param {Boolean} [options.merge=true]
+		 * @param {Boolean} [options.parse=false]
+		 * @return {Backbone.RelationalModel}
+		 */
+		findOrCreate: function( attributes, options ) {
+			options || ( options = {} );
+			var parsedAttributes = ( _.isObject( attributes ) && options.parse && this.prototype.parse ) ?
+				this.prototype.parse( _.clone( attributes ), options ) : attributes;
+
+			// If specified, use a custom `find` function to match up existing models to the given attributes.
+			// Otherwise, try to find an instance of 'this' model type in the store
+			var model = this.findModel( parsedAttributes );
+
+			// If we found an instance, update it with the data in 'item' (unless 'options.merge' is false).
+			// If not, create an instance (unless 'options.create' is false).
+			if ( _.isObject( attributes ) ) {
+				if ( model && options.merge !== false ) {
+					// Make sure `options.collection` and `options.url` doesn't cascade to nested models
+					delete options.collection;
+					delete options.url;
+
+					model.set( parsedAttributes, options );
+				}
+				else if ( !model && options.create !== false ) {
+					model = this.build( parsedAttributes, _.defaults( { parse: false }, options ) );
+				}
+			}
+
+			return model;
+		},
+
+		/**
+		 * Find an instance of `this` type in 'Backbone.Relational.store'.
+		 * - If `attributes` is a string or a number, `find` will query the `store` and return a model if found.
+		 * - If `attributes` is an object and is found in the store, the model will be updated with `attributes` unless `options.merge` is `false`.
+		 * @param {Object|String|Number} attributes Either a model's id, or the attributes used to create or update a model.
+		 * @param {Object} [options]
+		 * @param {Boolean} [options.merge=true]
+		 * @param {Boolean} [options.parse=false]
+		 * @return {Backbone.RelationalModel}
+		 */
+		find: function( attributes, options ) {
+			options || ( options = {} );
+			options.create = false;
+			return this.findOrCreate( attributes, options );
+		},
+
+		/**
+		 * A hook to override the matching when updating (or creating) a model.
+		 * The default implementation is to look up the model by id in the store.
+		 * @param {Object} attributes
+		 * @returns {Backbone.RelationalModel}
+		 */
+		findModel: function( attributes ) {
+			return Backbone.Relational.store.find( this, attributes );
+		}
+	});
+	_.extend( Backbone.RelationalModel.prototype, Backbone.Semaphore );
+
+	/**
+	 * Override Backbone.Collection._prepareModel, so objects will be built using the correct type
+	 * if the collection.model has subModels.
+	 * Attempts to find a model for `attrs` in Backbone.store through `findOrCreate`
+	 * (which sets the new properties on it if found), or instantiates a new model.
+	 */
+	Backbone.Collection.prototype.__prepareModel = Backbone.Collection.prototype._prepareModel;
+	Backbone.Collection.prototype._prepareModel = function( attrs, options ) {
+		var model;
+
+		if ( attrs instanceof Backbone.Model ) {
+			if ( !attrs.collection ) {
+				attrs.collection = this;
+			}
+			model = attrs;
+		}
+		else {
+			options = options ? _.clone( options ) : {};
+			options.collection = this;
+
+			if ( typeof this.model.findOrCreate !== 'undefined' ) {
+				model = this.model.findOrCreate( attrs, options );
+			}
+			else {
+				model = new this.model( attrs, options );
+			}
+
+			if ( model && model.validationError ) {
+				this.trigger( 'invalid', this, attrs, options );
+				model = false;
+			}
+		}
+
+		return model;
+	};
+
+
+	/**
+	 * Override Backbone.Collection.set, so we'll create objects from attributes where required,
+	 * and update the existing models. Also, trigger 'relational:add'.
+	 */
+	var set = Backbone.Collection.prototype.__set = Backbone.Collection.prototype.set;
+	Backbone.Collection.prototype.set = function( models, options ) {
+		// Short-circuit if this Collection doesn't hold RelationalModels
+		if ( !( this.model.prototype instanceof Backbone.RelationalModel ) ) {
+			return set.call( this, models, options );
+		}
+
+		if ( options && options.parse ) {
+			models = this.parse( models, options );
+		}
+
+		var singular = !_.isArray( models ),
+			newModels = [],
+			toAdd = [],
+			model = null;
+
+		models = singular ? ( models ? [ models ] : [] ) : _.clone( models );
+
+		//console.debug( 'calling add on coll=%o; model=%o, options=%o', this, models, options );
+		for ( var i = 0; i < models.length; i++ ) {
+			model = models[i];
+			if ( !( model instanceof Backbone.Model ) ) {
+				model = Backbone.Collection.prototype._prepareModel.call( this, model, options );
+			}
+			if ( model ) {
+				toAdd.push( model );
+				if ( !( this.get( model ) || this.get( model.cid ) ) ) {
+					newModels.push( model );
+				}
+				// If we arrive in `add` while performing a `set` (after a create, so the model gains an `id`),
+				// we may get here before `_onModelEvent` has had the chance to update `_byId`.
+				else if ( model.id !== null && model.id !== undefined ) {
+					this._byId[ model.id ] = model;
+				}
+			}
+		}
+
+		// Add 'models' in a single batch, so the original add will only be called once (and thus 'sort', etc).
+		// If `parse` was specified, the collection and contained models have been parsed now.
+		toAdd = singular ? ( toAdd.length ? toAdd[ 0 ] : null ) : toAdd;
+		var result = set.call( this, toAdd, _.defaults( { merge: false, parse: false }, options ) );
+
+		for ( i = 0; i < newModels.length; i++ ) {
+			model = newModels[i];
+			// Fire a `relational:add` event for any model in `newModels` that has actually been added to the collection.
+			if ( this.get( model ) || this.get( model.cid ) ) {
+				this.trigger( 'relational:add', model, this, options );
+			}
+		}
+
+		return result;
+	};
+
+	/**
+	 * Override 'Backbone.Collection.remove' to trigger 'relational:remove'.
+	 */
+	var remove = Backbone.Collection.prototype.__remove = Backbone.Collection.prototype.remove;
+	Backbone.Collection.prototype.remove = function( models, options ) {
+		// Short-circuit if this Collection doesn't hold RelationalModels
+		if ( !( this.model.prototype instanceof Backbone.RelationalModel ) ) {
+			return remove.call( this, models, options );
+		}
+
+		var singular = !_.isArray( models ),
+			toRemove = [];
+
+		models = singular ? ( models ? [ models ] : [] ) : _.clone( models );
+		options || ( options = {} );
+
+		//console.debug('calling remove on coll=%o; models=%o, options=%o', this, models, options );
+		_.each( models, function( model ) {
+			model = this.get( model ) || ( model && this.get( model.cid ) );
+			model && toRemove.push( model );
+		}, this );
+
+		var result = remove.call( this, singular ? ( toRemove.length ? toRemove[ 0 ] : null ) : toRemove, options );
+
+		_.each( toRemove, function( model ) {
+			this.trigger( 'relational:remove', model, this, options );
+		}, this );
+
+		return result;
+	};
+
+	/**
+	 * Override 'Backbone.Collection.reset' to trigger 'relational:reset'.
+	 */
+	var reset = Backbone.Collection.prototype.__reset = Backbone.Collection.prototype.reset;
+	Backbone.Collection.prototype.reset = function( models, options ) {
+		options = _.extend( { merge: true }, options );
+		var result = reset.call( this, models, options );
+
+		if ( this.model.prototype instanceof Backbone.RelationalModel ) {
+			this.trigger( 'relational:reset', this, options );
+		}
+
+		return result;
+	};
+
+	/**
+	 * Override 'Backbone.Collection.sort' to trigger 'relational:reset'.
+	 */
+	var sort = Backbone.Collection.prototype.__sort = Backbone.Collection.prototype.sort;
+	Backbone.Collection.prototype.sort = function( options ) {
+		var result = sort.call( this, options );
+
+		if ( this.model.prototype instanceof Backbone.RelationalModel ) {
+			this.trigger( 'relational:reset', this, options );
+		}
+
+		return result;
+	};
+
+	/**
+	 * Override 'Backbone.Collection.trigger' so 'add', 'remove' and 'reset' events are queued until relations
+	 * are ready.
+	 */
+	var trigger = Backbone.Collection.prototype.__trigger = Backbone.Collection.prototype.trigger;
+	Backbone.Collection.prototype.trigger = function( eventName ) {
+		// Short-circuit if this Collection doesn't hold RelationalModels
+		if ( !( this.model.prototype instanceof Backbone.RelationalModel ) ) {
+			return trigger.apply( this, arguments );
+		}
+
+		if ( eventName === 'add' || eventName === 'remove' || eventName === 'reset' || eventName === 'sort' ) {
+			var dit = this,
+				args = arguments;
+
+			if ( _.isObject( args[ 3 ] ) ) {
+				args = _.toArray( args );
+				// the fourth argument is the option object.
+				// we need to clone it, as it could be modified while we wait on the eventQueue to be unblocked
+				args[ 3 ] = _.clone( args[ 3 ] );
+			}
+
+			Backbone.Relational.eventQueue.add( function() {
+				trigger.apply( dit, args );
+			});
+		}
+		else {
+			trigger.apply( this, arguments );
+		}
+
+		return this;
+	};
+
+	// Override .extend() to automatically call .setup()
+	Backbone.RelationalModel.extend = function( protoProps, classProps ) {
+		var child = Backbone.Model.extend.call( this, protoProps, classProps );
+
+		child.setup( this );
+
+		return child;
+	};
+}));
+
+},{"backbone":16,"underscore":303}],15:[function(require,module,exports){
 //     Backbone.Controller 0.3.0
 //     (c) Artyom Trityak
 //     Backbone.Controller may be freely distributed under the MIT license.
@@ -730,7 +2902,7 @@ module.exports = Backbone.Model.extend({
   return Backbone.Controller;
 
 }));
-},{"backbone":11,"underscore":298}],11:[function(require,module,exports){
+},{"backbone":16,"underscore":303}],16:[function(require,module,exports){
 (function (global){
 //     Backbone.js 1.2.1
 
@@ -2608,7 +4780,7 @@ module.exports = Backbone.Model.extend({
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 
-},{"jquery":140,"underscore":298}],12:[function(require,module,exports){
+},{"jquery":145,"underscore":303}],17:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
@@ -2700,7 +4872,7 @@ process.chdir = function (dir) {
 };
 process.umask = function() { return 0; };
 
-},{}],13:[function(require,module,exports){
+},{}],18:[function(require,module,exports){
 /*
 Syntax highlighting with language autodetection.
 https://highlightjs.org/
@@ -3468,7 +5640,7 @@ https://highlightjs.org/
   return hljs;
 }));
 
-},{}],14:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 var hljs = require('./highlight');
 
 hljs.registerLanguage('1c', require('./languages/1c'));
@@ -3598,7 +5770,7 @@ hljs.registerLanguage('x86asm', require('./languages/x86asm'));
 hljs.registerLanguage('xl', require('./languages/xl'));
 
 module.exports = hljs;
-},{"./highlight":13,"./languages/1c":15,"./languages/actionscript":16,"./languages/apache":17,"./languages/applescript":18,"./languages/armasm":19,"./languages/asciidoc":20,"./languages/aspectj":21,"./languages/autohotkey":22,"./languages/avrasm":23,"./languages/axapta":24,"./languages/bash":25,"./languages/brainfuck":26,"./languages/cal":27,"./languages/capnproto":28,"./languages/ceylon":29,"./languages/clojure":31,"./languages/clojure-repl":30,"./languages/cmake":32,"./languages/coffeescript":33,"./languages/cpp":34,"./languages/cs":35,"./languages/css":36,"./languages/d":37,"./languages/dart":38,"./languages/delphi":39,"./languages/diff":40,"./languages/django":41,"./languages/dns":42,"./languages/dockerfile":43,"./languages/dos":44,"./languages/dust":45,"./languages/elixir":46,"./languages/erb":47,"./languages/erlang":49,"./languages/erlang-repl":48,"./languages/fix":50,"./languages/fortran":51,"./languages/fsharp":52,"./languages/gcode":53,"./languages/gherkin":54,"./languages/glsl":55,"./languages/go":56,"./languages/gradle":57,"./languages/groovy":58,"./languages/haml":59,"./languages/handlebars":60,"./languages/haskell":61,"./languages/haxe":62,"./languages/http":63,"./languages/inform7":64,"./languages/ini":65,"./languages/java":66,"./languages/javascript":67,"./languages/json":68,"./languages/julia":69,"./languages/kotlin":70,"./languages/lasso":71,"./languages/less":72,"./languages/lisp":73,"./languages/livecodeserver":74,"./languages/livescript":75,"./languages/lua":76,"./languages/makefile":77,"./languages/markdown":78,"./languages/mathematica":79,"./languages/matlab":80,"./languages/mel":81,"./languages/mercury":82,"./languages/mizar":83,"./languages/monkey":84,"./languages/nginx":85,"./languages/nimrod":86,"./languages/nix":87,"./languages/nsis":88,"./languages/objectivec":89,"./languages/ocaml":90,"./languages/openscad":91,"./languages/oxygene":92,"./languages/parser3":93,"./languages/perl":94,"./languages/pf":95,"./languages/php":96,"./languages/powershell":97,"./languages/processing":98,"./languages/profile":99,"./languages/prolog":100,"./languages/protobuf":101,"./languages/puppet":102,"./languages/python":103,"./languages/q":104,"./languages/r":105,"./languages/rib":106,"./languages/roboconf":107,"./languages/rsl":108,"./languages/ruby":109,"./languages/ruleslanguage":110,"./languages/rust":111,"./languages/scala":112,"./languages/scheme":113,"./languages/scilab":114,"./languages/scss":115,"./languages/smali":116,"./languages/smalltalk":117,"./languages/sml":118,"./languages/sql":119,"./languages/stata":120,"./languages/step21":121,"./languages/stylus":122,"./languages/swift":123,"./languages/tcl":124,"./languages/tex":125,"./languages/thrift":126,"./languages/tp":127,"./languages/twig":128,"./languages/typescript":129,"./languages/vala":130,"./languages/vbnet":131,"./languages/vbscript":133,"./languages/vbscript-html":132,"./languages/verilog":134,"./languages/vhdl":135,"./languages/vim":136,"./languages/x86asm":137,"./languages/xl":138,"./languages/xml":139}],15:[function(require,module,exports){
+},{"./highlight":18,"./languages/1c":20,"./languages/actionscript":21,"./languages/apache":22,"./languages/applescript":23,"./languages/armasm":24,"./languages/asciidoc":25,"./languages/aspectj":26,"./languages/autohotkey":27,"./languages/avrasm":28,"./languages/axapta":29,"./languages/bash":30,"./languages/brainfuck":31,"./languages/cal":32,"./languages/capnproto":33,"./languages/ceylon":34,"./languages/clojure":36,"./languages/clojure-repl":35,"./languages/cmake":37,"./languages/coffeescript":38,"./languages/cpp":39,"./languages/cs":40,"./languages/css":41,"./languages/d":42,"./languages/dart":43,"./languages/delphi":44,"./languages/diff":45,"./languages/django":46,"./languages/dns":47,"./languages/dockerfile":48,"./languages/dos":49,"./languages/dust":50,"./languages/elixir":51,"./languages/erb":52,"./languages/erlang":54,"./languages/erlang-repl":53,"./languages/fix":55,"./languages/fortran":56,"./languages/fsharp":57,"./languages/gcode":58,"./languages/gherkin":59,"./languages/glsl":60,"./languages/go":61,"./languages/gradle":62,"./languages/groovy":63,"./languages/haml":64,"./languages/handlebars":65,"./languages/haskell":66,"./languages/haxe":67,"./languages/http":68,"./languages/inform7":69,"./languages/ini":70,"./languages/java":71,"./languages/javascript":72,"./languages/json":73,"./languages/julia":74,"./languages/kotlin":75,"./languages/lasso":76,"./languages/less":77,"./languages/lisp":78,"./languages/livecodeserver":79,"./languages/livescript":80,"./languages/lua":81,"./languages/makefile":82,"./languages/markdown":83,"./languages/mathematica":84,"./languages/matlab":85,"./languages/mel":86,"./languages/mercury":87,"./languages/mizar":88,"./languages/monkey":89,"./languages/nginx":90,"./languages/nimrod":91,"./languages/nix":92,"./languages/nsis":93,"./languages/objectivec":94,"./languages/ocaml":95,"./languages/openscad":96,"./languages/oxygene":97,"./languages/parser3":98,"./languages/perl":99,"./languages/pf":100,"./languages/php":101,"./languages/powershell":102,"./languages/processing":103,"./languages/profile":104,"./languages/prolog":105,"./languages/protobuf":106,"./languages/puppet":107,"./languages/python":108,"./languages/q":109,"./languages/r":110,"./languages/rib":111,"./languages/roboconf":112,"./languages/rsl":113,"./languages/ruby":114,"./languages/ruleslanguage":115,"./languages/rust":116,"./languages/scala":117,"./languages/scheme":118,"./languages/scilab":119,"./languages/scss":120,"./languages/smali":121,"./languages/smalltalk":122,"./languages/sml":123,"./languages/sql":124,"./languages/stata":125,"./languages/step21":126,"./languages/stylus":127,"./languages/swift":128,"./languages/tcl":129,"./languages/tex":130,"./languages/thrift":131,"./languages/tp":132,"./languages/twig":133,"./languages/typescript":134,"./languages/vala":135,"./languages/vbnet":136,"./languages/vbscript":138,"./languages/vbscript-html":137,"./languages/verilog":139,"./languages/vhdl":140,"./languages/vim":141,"./languages/x86asm":142,"./languages/xl":143,"./languages/xml":144}],20:[function(require,module,exports){
 module.exports = function(hljs){
   var IDENT_RE_RU = '[a-zA-Zа-яА-Я][a-zA-Z0-9_а-яА-Я]*';
   var OneS_KEYWORDS = 'возврат дата для если и или иначе иначеесли исключение конецесли ' +
@@ -3684,7 +5856,7 @@ module.exports = function(hljs){
     ]
   };
 };
-},{}],16:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 module.exports = function(hljs) {
   var IDENT_RE = '[a-zA-Z_$][a-zA-Z0-9_$]*';
   var IDENT_FUNC_RETURN_TYPE_RE = '([*]|[a-zA-Z_$][a-zA-Z0-9_$]*)';
@@ -3758,7 +5930,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],17:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
 module.exports = function(hljs) {
   var NUMBER = {className: 'number', begin: '[\\$%]\\d+'};
   return {
@@ -3804,7 +5976,7 @@ module.exports = function(hljs) {
     illegal: /\S/
   };
 };
-},{}],18:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 module.exports = function(hljs) {
   var STRING = hljs.inherit(hljs.QUOTE_STRING_MODE, {illegal: ''});
   var PARAMS = {
@@ -3901,7 +6073,7 @@ module.exports = function(hljs) {
     illegal: '//|->|=>'
   };
 };
-},{}],19:[function(require,module,exports){
+},{}],24:[function(require,module,exports){
 module.exports = function(hljs) {
     //local labels: %?[FB]?[AT]?\d{1,2}\w+
   return {
@@ -3993,7 +6165,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],20:[function(require,module,exports){
+},{}],25:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     aliases: ['adoc'],
@@ -4185,7 +6357,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],21:[function(require,module,exports){
+},{}],26:[function(require,module,exports){
 module.exports = function (hljs) {
   var KEYWORDS =
     'false synchronized int abstract float private char boolean static null if const ' +
@@ -4323,7 +6495,7 @@ module.exports = function (hljs) {
     ]
   };
 };
-},{}],22:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 module.exports = function(hljs) {
   var BACKTICK_ESCAPE = {
     className: 'escape',
@@ -4385,7 +6557,7 @@ module.exports = function(hljs) {
     ])
   }
 };
-},{}],23:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     case_insensitive: true,
@@ -4447,7 +6619,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],24:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     keywords: 'false int abstract private char boolean static null if for true ' +
@@ -4478,7 +6650,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],25:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
 module.exports = function(hljs) {
   var VAR = {
     className: 'variable',
@@ -4554,7 +6726,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],26:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 module.exports = function(hljs){
   var LITERAL = {
     className: 'literal',
@@ -4591,7 +6763,7 @@ module.exports = function(hljs){
     ]
   };
 };
-},{}],27:[function(require,module,exports){
+},{}],32:[function(require,module,exports){
 module.exports = function(hljs) {
   var KEYWORDS =
     'div mod in and or not xor asserterror begin case do downto else end exit for if of repeat then to ' +
@@ -4670,7 +6842,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],28:[function(require,module,exports){
+},{}],33:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     aliases: ['capnp'],
@@ -4719,7 +6891,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],29:[function(require,module,exports){
+},{}],34:[function(require,module,exports){
 module.exports = function(hljs) {
   // 2.3. Identifiers and keywords
   var KEYWORDS =
@@ -4787,7 +6959,7 @@ module.exports = function(hljs) {
     ].concat(EXPRESSIONS)
   };
 };
-},{}],30:[function(require,module,exports){
+},{}],35:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     contains: [
@@ -4802,7 +6974,7 @@ module.exports = function(hljs) {
     ]
   }
 };
-},{}],31:[function(require,module,exports){
+},{}],36:[function(require,module,exports){
 module.exports = function(hljs) {
   var keywords = {
     built_in:
@@ -4899,7 +7071,7 @@ module.exports = function(hljs) {
     contains: [LIST, STRING, HINT, HINT_COL, COMMENT, KEY, COLLECTION, NUMBER, LITERAL]
   }
 };
-},{}],32:[function(require,module,exports){
+},{}],37:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     aliases: ['cmake.in'],
@@ -4938,7 +7110,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],33:[function(require,module,exports){
+},{}],38:[function(require,module,exports){
 module.exports = function(hljs) {
   var KEYWORDS = {
     keyword:
@@ -5082,7 +7254,7 @@ module.exports = function(hljs) {
     ])
   };
 };
-},{}],34:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
 module.exports = function(hljs) {
   var CPP_PRIMATIVE_TYPES = {
     className: 'keyword',
@@ -5195,7 +7367,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],35:[function(require,module,exports){
+},{}],40:[function(require,module,exports){
 module.exports = function(hljs) {
   var KEYWORDS =
     // Normal keywords.
@@ -5314,7 +7486,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],36:[function(require,module,exports){
+},{}],41:[function(require,module,exports){
 module.exports = function(hljs) {
   var IDENT_RE = '[a-zA-Z-][a-zA-Z0-9_-]*';
   var FUNCTION = {
@@ -5417,7 +7589,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],37:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
 module.exports = /**
  * Known issues:
  *
@@ -5675,7 +7847,7 @@ function(hljs) {
     ]
   };
 };
-},{}],38:[function(require,module,exports){
+},{}],43:[function(require,module,exports){
 module.exports = function (hljs) {
   var SUBST = {
     className: 'subst',
@@ -5778,7 +7950,7 @@ module.exports = function (hljs) {
     ]
   }
 };
-},{}],39:[function(require,module,exports){
+},{}],44:[function(require,module,exports){
 module.exports = function(hljs) {
   var KEYWORDS =
     'exports register file shl array record property for mod while set ally label uses raise not ' +
@@ -5845,7 +8017,7 @@ module.exports = function(hljs) {
     ].concat(COMMENT_MODES)
   };
 };
-},{}],40:[function(require,module,exports){
+},{}],45:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     aliases: ['patch'],
@@ -5885,7 +8057,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],41:[function(require,module,exports){
+},{}],46:[function(require,module,exports){
 module.exports = function(hljs) {
   var FILTER = {
     className: 'filter',
@@ -5935,7 +8107,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],42:[function(require,module,exports){
+},{}],47:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     aliases: ['bind', 'zone'],
@@ -5963,7 +8135,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],43:[function(require,module,exports){
+},{}],48:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     aliases: ['docker'],
@@ -5998,7 +8170,7 @@ module.exports = function(hljs) {
     ]
   }
 };
-},{}],44:[function(require,module,exports){
+},{}],49:[function(require,module,exports){
 module.exports = function(hljs) {
   var COMMENT = hljs.COMMENT(
     /@?rem\b/, /$/,
@@ -6046,7 +8218,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],45:[function(require,module,exports){
+},{}],50:[function(require,module,exports){
 module.exports = function(hljs) {
   var EXPRESSION_KEYWORDS = 'if eq ne lt lte gt gte select default math sep';
   return {
@@ -6081,7 +8253,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],46:[function(require,module,exports){
+},{}],51:[function(require,module,exports){
 module.exports = function(hljs) {
   var ELIXIR_IDENT_RE = '[a-zA-Z_][a-zA-Z0-9_]*(\\!|\\?)?';
   var ELIXIR_METHOD_RE = '[a-zA-Z_]\\w*[!?=]?|[-+~]\\@|<<|>>|=~|===?|<=>|[<>]=?|\\*\\*|[-/+%^&*~`|]|\\[\\]=?';
@@ -6183,7 +8355,7 @@ module.exports = function(hljs) {
     contains: ELIXIR_DEFAULT_CONTAINS
   };
 };
-},{}],47:[function(require,module,exports){
+},{}],52:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     subLanguage: 'xml', subLanguageMode: 'continuous',
@@ -6198,7 +8370,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],48:[function(require,module,exports){
+},{}],53:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     keywords: {
@@ -6246,7 +8418,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],49:[function(require,module,exports){
+},{}],54:[function(require,module,exports){
 module.exports = function(hljs) {
   var BASIC_ATOM_RE = '[a-z\'][a-zA-Z0-9_\']*';
   var FUNCTION_NAME_RE = '(' + BASIC_ATOM_RE + ':' + BASIC_ATOM_RE + '|' + BASIC_ATOM_RE + ')';
@@ -6398,7 +8570,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],50:[function(require,module,exports){
+},{}],55:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     contains: [
@@ -6427,7 +8599,7 @@ module.exports = function(hljs) {
     case_insensitive: true
   };
 };
-},{}],51:[function(require,module,exports){
+},{}],56:[function(require,module,exports){
 module.exports = function(hljs) {
   var PARAMS = {
     className: 'params',
@@ -6497,7 +8669,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],52:[function(require,module,exports){
+},{}],57:[function(require,module,exports){
 module.exports = function(hljs) {
   var TYPEPARAM = {
     begin: '<', end: '>',
@@ -6553,7 +8725,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],53:[function(require,module,exports){
+},{}],58:[function(require,module,exports){
 module.exports = function(hljs) {
     var GCODE_IDENT_RE = '[A-Z_][A-Z0-9_.]*';
     var GCODE_CLOSE_RE = '\\%';
@@ -6626,7 +8798,7 @@ module.exports = function(hljs) {
         ].concat(GCODE_CODE)
     };
 };
-},{}],54:[function(require,module,exports){
+},{}],59:[function(require,module,exports){
 module.exports = function (hljs) {
   return {
     aliases: ['feature'],
@@ -6659,7 +8831,7 @@ module.exports = function (hljs) {
     ]
   };
 };
-},{}],55:[function(require,module,exports){
+},{}],60:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     keywords: {
@@ -6753,7 +8925,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],56:[function(require,module,exports){
+},{}],61:[function(require,module,exports){
 module.exports = function(hljs) {
   var GO_KEYWORDS = {
     keyword:
@@ -6792,7 +8964,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],57:[function(require,module,exports){
+},{}],62:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     case_insensitive: true,
@@ -6827,7 +8999,7 @@ module.exports = function(hljs) {
     ]
   }
 };
-},{}],58:[function(require,module,exports){
+},{}],63:[function(require,module,exports){
 module.exports = function(hljs) {
     return {
         keywords: {
@@ -6914,7 +9086,7 @@ module.exports = function(hljs) {
         ]
     }
 };
-},{}],59:[function(require,module,exports){
+},{}],64:[function(require,module,exports){
 module.exports = // TODO support filter tags like :javascript, support inline HTML
 function(hljs) {
   return {
@@ -7022,7 +9194,7 @@ function(hljs) {
     ]
   };
 };
-},{}],60:[function(require,module,exports){
+},{}],65:[function(require,module,exports){
 module.exports = function(hljs) {
   var EXPRESSION_KEYWORDS = 'each in with if else unless bindattr action collection debugger log outlet template unbound view yield';
   return {
@@ -7055,7 +9227,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],61:[function(require,module,exports){
+},{}],66:[function(require,module,exports){
 module.exports = function(hljs) {
   var COMMENT_MODES = [
     hljs.COMMENT('--', '$'),
@@ -7179,7 +9351,7 @@ module.exports = function(hljs) {
     ].concat(COMMENT_MODES)
   };
 };
-},{}],62:[function(require,module,exports){
+},{}],67:[function(require,module,exports){
 module.exports = function(hljs) {
   var IDENT_RE = '[a-zA-Z_$][a-zA-Z0-9_$]*';
   var IDENT_FUNC_RETURN_TYPE_RE = '([*]|[a-zA-Z_$][a-zA-Z0-9_$]*)';
@@ -7240,7 +9412,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],63:[function(require,module,exports){
+},{}],68:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     aliases: ['https'],
@@ -7275,7 +9447,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],64:[function(require,module,exports){
+},{}],69:[function(require,module,exports){
 module.exports = function(hljs) {
   var START_BRACKET = '\\[';
   var END_BRACKET = '\\]';
@@ -7343,7 +9515,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],65:[function(require,module,exports){
+},{}],70:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     case_insensitive: true,
@@ -7370,7 +9542,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],66:[function(require,module,exports){
+},{}],71:[function(require,module,exports){
 module.exports = function(hljs) {
   var GENERIC_IDENT_RE = hljs.UNDERSCORE_IDENT_RE + '(<' + hljs.UNDERSCORE_IDENT_RE + '>)?';
   var KEYWORDS =
@@ -7470,7 +9642,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],67:[function(require,module,exports){
+},{}],72:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     aliases: ['js'],
@@ -7582,7 +9754,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],68:[function(require,module,exports){
+},{}],73:[function(require,module,exports){
 module.exports = function(hljs) {
   var LITERALS = {literal: 'true false null'};
   var TYPES = [
@@ -7620,7 +9792,7 @@ module.exports = function(hljs) {
     illegal: '\\S'
   };
 };
-},{}],69:[function(require,module,exports){
+},{}],74:[function(require,module,exports){
 module.exports = function(hljs) {
   // Since there are numerous special names in Julia, it is too much trouble
   // to maintain them by hand. Hence these names (i.e. keywords, literals and
@@ -7781,7 +9953,7 @@ module.exports = function(hljs) {
 
   return DEFAULT;
 };
-},{}],70:[function(require,module,exports){
+},{}],75:[function(require,module,exports){
 module.exports = function (hljs) {
   var KEYWORDS = 'val var get set class trait object public open private protected ' +
     'final enum if else do while for when break continue throw try catch finally ' +
@@ -7882,7 +10054,7 @@ module.exports = function (hljs) {
     ]
   };
 };
-},{}],71:[function(require,module,exports){
+},{}],76:[function(require,module,exports){
 module.exports = function(hljs) {
   var LASSO_IDENT_RE = '[a-zA-Z_][a-zA-Z0-9_.]*';
   var LASSO_ANGLE_RE = '<\\?(lasso(script)?|=)';
@@ -8068,7 +10240,7 @@ module.exports = function(hljs) {
     ].concat(LASSO_CODE)
   };
 };
-},{}],72:[function(require,module,exports){
+},{}],77:[function(require,module,exports){
 module.exports = function(hljs) {
   var IDENT_RE        = '[\\w-]+'; // yes, Less identifiers may begin with a digit
   var INTERP_IDENT_RE = '(' + IDENT_RE + '|@{' + IDENT_RE + '})';
@@ -8205,7 +10377,7 @@ module.exports = function(hljs) {
     contains: RULES
   };
 };
-},{}],73:[function(require,module,exports){
+},{}],78:[function(require,module,exports){
 module.exports = function(hljs) {
   var LISP_IDENT_RE = '[a-zA-Z_\\-\\+\\*\\/\\<\\=\\>\\&\\#][a-zA-Z0-9_\\-\\+\\*\\/\\<\\=\\>\\&\\#!]*';
   var MEC_RE = '\\|[^]*?\\|';
@@ -8312,7 +10484,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],74:[function(require,module,exports){
+},{}],79:[function(require,module,exports){
 module.exports = function(hljs) {
   var VARIABLE = {
     className: 'variable', begin: '\\b[gtps][A-Z]+[A-Za-z0-9_\\-]*\\b|\\$_[A-Z]+',
@@ -8470,7 +10642,7 @@ module.exports = function(hljs) {
     illegal: ';$|^\\[|^='
   };
 };
-},{}],75:[function(require,module,exports){
+},{}],80:[function(require,module,exports){
 module.exports = function(hljs) {
   var KEYWORDS = {
     keyword:
@@ -8621,7 +10793,7 @@ module.exports = function(hljs) {
     ])
   };
 };
-},{}],76:[function(require,module,exports){
+},{}],81:[function(require,module,exports){
 module.exports = function(hljs) {
   var OPENING_LONG_BRACKET = '\\[=*\\[';
   var CLOSING_LONG_BRACKET = '\\]=*\\]';
@@ -8677,7 +10849,7 @@ module.exports = function(hljs) {
     ])
   };
 };
-},{}],77:[function(require,module,exports){
+},{}],82:[function(require,module,exports){
 module.exports = function(hljs) {
   var VARIABLE = {
     className: 'variable',
@@ -8723,7 +10895,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],78:[function(require,module,exports){
+},{}],83:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     aliases: ['md', 'mkdown', 'mkd'],
@@ -8825,7 +10997,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],79:[function(require,module,exports){
+},{}],84:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     aliases: ['mma'],
@@ -8884,7 +11056,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],80:[function(require,module,exports){
+},{}],85:[function(require,module,exports){
 module.exports = function(hljs) {
   var COMMON_CONTAINS = [
     hljs.C_NUMBER_MODE,
@@ -8975,7 +11147,7 @@ module.exports = function(hljs) {
     ].concat(COMMON_CONTAINS)
   };
 };
-},{}],81:[function(require,module,exports){
+},{}],86:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     keywords:
@@ -9205,7 +11377,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],82:[function(require,module,exports){
+},{}],87:[function(require,module,exports){
 module.exports = function(hljs) {
   var KEYWORDS = {
     keyword:
@@ -9294,7 +11466,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],83:[function(require,module,exports){
+},{}],88:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     keywords:
@@ -9313,7 +11485,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],84:[function(require,module,exports){
+},{}],89:[function(require,module,exports){
 module.exports = function(hljs) {
   var NUMBER = {
     className: 'number', relevance: 0,
@@ -9391,7 +11563,7 @@ module.exports = function(hljs) {
     ]
   }
 };
-},{}],85:[function(require,module,exports){
+},{}],90:[function(require,module,exports){
 module.exports = function(hljs) {
   var VAR = {
     className: 'variable',
@@ -9473,7 +11645,7 @@ module.exports = function(hljs) {
     illegal: '[^\\s\\}]'
   };
 };
-},{}],86:[function(require,module,exports){
+},{}],91:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     aliases: ['nim'],
@@ -9525,7 +11697,7 @@ module.exports = function(hljs) {
     ]
   }
 };
-},{}],87:[function(require,module,exports){
+},{}],92:[function(require,module,exports){
 module.exports = function(hljs) {
   var NIX_KEYWORDS = {
     keyword: 'rec with let in inherit assert if else then',
@@ -9575,7 +11747,7 @@ module.exports = function(hljs) {
     contains: EXPRESSIONS
   };
 };
-},{}],88:[function(require,module,exports){
+},{}],93:[function(require,module,exports){
 module.exports = function(hljs) {
   var CONSTANTS = {
     className: 'symbol',
@@ -9663,7 +11835,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],89:[function(require,module,exports){
+},{}],94:[function(require,module,exports){
 module.exports = function(hljs) {
   var API_CLASS = {
     className: 'built_in',
@@ -9742,7 +11914,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],90:[function(require,module,exports){
+},{}],95:[function(require,module,exports){
 module.exports = function(hljs) {
   /* missing support for heredoc-like string (OCaml 4.0.2+) */
   return {
@@ -9812,7 +11984,7 @@ module.exports = function(hljs) {
     ]
   }
 };
-},{}],91:[function(require,module,exports){
+},{}],96:[function(require,module,exports){
 module.exports = function(hljs) {
 	var SPECIAL_VARS = {
 		className: 'keyword',
@@ -9871,7 +12043,7 @@ module.exports = function(hljs) {
 		]
 	}
 };
-},{}],92:[function(require,module,exports){
+},{}],97:[function(require,module,exports){
 module.exports = function(hljs) {
   var OXYGENE_KEYWORDS = 'abstract add and array as asc aspect assembly async begin break block by case class concat const copy constructor continue '+
     'create default delegate desc distinct div do downto dynamic each else empty end ensure enum equals event except exit extension external false '+
@@ -9940,7 +12112,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],93:[function(require,module,exports){
+},{}],98:[function(require,module,exports){
 module.exports = function(hljs) {
   var CURLY_SUBCOMMENT = hljs.COMMENT(
     '{',
@@ -9988,7 +12160,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],94:[function(require,module,exports){
+},{}],99:[function(require,module,exports){
 module.exports = function(hljs) {
   var PERL_KEYWORDS = 'getpwent getservent quotemeta msgrcv scalar kill dbmclose undef lc ' +
     'ma syswrite tr send umask sysopen shmwrite vec qx utime local oct semctl localtime ' +
@@ -10142,7 +12314,7 @@ module.exports = function(hljs) {
     contains: PERL_DEFAULT_CONTAINS
   };
 };
-},{}],95:[function(require,module,exports){
+},{}],100:[function(require,module,exports){
 module.exports = function(hljs) {
   var MACRO = {
     className: 'variable',
@@ -10194,7 +12366,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],96:[function(require,module,exports){
+},{}],101:[function(require,module,exports){
 module.exports = function(hljs) {
   var VARIABLE = {
     className: 'variable', begin: '\\$+[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*'
@@ -10310,7 +12482,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],97:[function(require,module,exports){
+},{}],102:[function(require,module,exports){
 module.exports = function(hljs) {
   var backtickEscape = {
     begin: '`[\\s\\S]',
@@ -10362,7 +12534,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],98:[function(require,module,exports){
+},{}],103:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     keywords: {
@@ -10410,7 +12582,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],99:[function(require,module,exports){
+},{}],104:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     contains: [
@@ -10452,7 +12624,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],100:[function(require,module,exports){
+},{}],105:[function(require,module,exports){
 module.exports = function(hljs) {
 
   var ATOM = {
@@ -10541,7 +12713,7 @@ module.exports = function(hljs) {
     ])
   };
 };
-},{}],101:[function(require,module,exports){
+},{}],106:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     keywords: {
@@ -10578,7 +12750,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],102:[function(require,module,exports){
+},{}],107:[function(require,module,exports){
 module.exports = function(hljs) {
   var PUPPET_TYPE_REFERENCE =
       'augeas computer cron exec file filebucket host interface k5login macauthorization mailalias maillist mcx mount nagios_command ' +
@@ -10685,7 +12857,7 @@ module.exports = function(hljs) {
     contains: PUPPET_DEFAULT_CONTAINS
   }
 };
-},{}],103:[function(require,module,exports){
+},{}],108:[function(require,module,exports){
 module.exports = function(hljs) {
   var PROMPT = {
     className: 'prompt',  begin: /^(>>>|\.\.\.) /
@@ -10770,7 +12942,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],104:[function(require,module,exports){
+},{}],109:[function(require,module,exports){
 module.exports = function(hljs) {
   var Q_KEYWORDS = {
   keyword:
@@ -10793,7 +12965,7 @@ module.exports = function(hljs) {
      ]
   };
 };
-},{}],105:[function(require,module,exports){
+},{}],110:[function(require,module,exports){
 module.exports = function(hljs) {
   var IDENT_RE = '([a-zA-Z]|\\.[a-zA-Z.])[a-zA-Z0-9._]*';
 
@@ -10863,7 +13035,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],106:[function(require,module,exports){
+},{}],111:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     keywords:
@@ -10890,7 +13062,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],107:[function(require,module,exports){
+},{}],112:[function(require,module,exports){
 module.exports = function(hljs) {
   var IDENTIFIER = '[a-zA-Z-_][^\n{\r\n]+\\{';
 
@@ -10950,7 +13122,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],108:[function(require,module,exports){
+},{}],113:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     keywords: {
@@ -10987,7 +13159,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],109:[function(require,module,exports){
+},{}],114:[function(require,module,exports){
 module.exports = function(hljs) {
   var RUBY_METHOD_RE = '[a-zA-Z_]\\w*[!?=]?|[-+~]\\@|<<|>>|=~|===?|<=>|[<>]=?|\\*\\*|[-/+%^&*~`|]|\\[\\]=?';
   var RUBY_KEYWORDS =
@@ -11157,7 +13329,7 @@ module.exports = function(hljs) {
     contains: COMMENT_MODES.concat(IRB_DEFAULT).concat(RUBY_DEFAULT_CONTAINS)
   };
 };
-},{}],110:[function(require,module,exports){
+},{}],115:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     keywords: {
@@ -11214,7 +13386,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],111:[function(require,module,exports){
+},{}],116:[function(require,module,exports){
 module.exports = function(hljs) {
   var NUM_SUFFIX = '([uif](8|16|32|64|size))\?';
   var BLOCK_COMMENT = hljs.inherit(hljs.C_BLOCK_COMMENT_MODE);
@@ -11292,7 +13464,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],112:[function(require,module,exports){
+},{}],117:[function(require,module,exports){
 module.exports = function(hljs) {
 
   var ANNOTATION = {
@@ -11355,7 +13527,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],113:[function(require,module,exports){
+},{}],118:[function(require,module,exports){
 module.exports = function(hljs) {
   var SCHEME_IDENT_RE = '[^\\(\\)\\[\\]\\{\\}",\'`;#|\\\\\\s]+';
   var SCHEME_SIMPLE_NUMBER_RE = '(\\-|\\+)?\\d+([./]\\d+)?';
@@ -11477,7 +13649,7 @@ module.exports = function(hljs) {
     contains: [SHEBANG, NUMBER, STRING, QUOTED_IDENT, LIST].concat(COMMENT_MODES)
   };
 };
-},{}],114:[function(require,module,exports){
+},{}],119:[function(require,module,exports){
 module.exports = function(hljs) {
 
   var COMMON_CONTAINS = [
@@ -11532,7 +13704,7 @@ module.exports = function(hljs) {
     ].concat(COMMON_CONTAINS)
   };
 };
-},{}],115:[function(require,module,exports){
+},{}],120:[function(require,module,exports){
 module.exports = function(hljs) {
   var IDENT_RE = '[a-zA-Z-][a-zA-Z0-9_-]*';
   var VARIABLE = {
@@ -11649,7 +13821,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],116:[function(require,module,exports){
+},{}],121:[function(require,module,exports){
 module.exports = function(hljs) {
   var smali_instr_low_prio = ['add', 'and', 'cmp', 'cmpg', 'cmpl', 'const', 'div', 'double', 'float', 'goto', 'if', 'int', 'long', 'move', 'mul', 'neg', 'new', 'nop', 'not', 'or', 'rem', 'return', 'shl', 'shr', 'sput', 'sub', 'throw', 'ushr', 'xor'];
   var smali_instr_high_prio = ['aget', 'aput', 'array', 'check', 'execute', 'fill', 'filled', 'goto/16', 'goto/32', 'iget', 'instance', 'invoke', 'iput', 'monitor', 'packed', 'sget', 'sparse'];
@@ -11732,7 +13904,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],117:[function(require,module,exports){
+},{}],122:[function(require,module,exports){
 module.exports = function(hljs) {
   var VAR_IDENT_RE = '[a-z][a-zA-Z0-9_]*';
   var CHAR = {
@@ -11785,7 +13957,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],118:[function(require,module,exports){
+},{}],123:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     aliases: ['ml'],
@@ -11850,7 +14022,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],119:[function(require,module,exports){
+},{}],124:[function(require,module,exports){
 module.exports = function(hljs) {
   var COMMENT_MODE = hljs.COMMENT('--', '$');
   return {
@@ -11950,7 +14122,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],120:[function(require,module,exports){
+},{}],125:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     aliases: ['do', 'ado'],
@@ -11988,7 +14160,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],121:[function(require,module,exports){
+},{}],126:[function(require,module,exports){
 module.exports = function(hljs) {
   var STEP21_IDENT_RE = '[A-Z_][A-Z0-9_.]*';
   var STEP21_CLOSE_RE = 'END-ISO-10303-21;';
@@ -12040,7 +14212,7 @@ module.exports = function(hljs) {
     ].concat(STEP21_CODE)
   };
 };
-},{}],122:[function(require,module,exports){
+},{}],127:[function(require,module,exports){
 module.exports = function(hljs) {
 
   var VARIABLE = {
@@ -12483,7 +14655,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],123:[function(require,module,exports){
+},{}],128:[function(require,module,exports){
 module.exports = function(hljs) {
   var SWIFT_KEYWORDS = {
       keyword: 'class deinit enum extension func import init let protocol static ' +
@@ -12594,7 +14766,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],124:[function(require,module,exports){
+},{}],129:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     aliases: ['tk'],
@@ -12656,7 +14828,7 @@ module.exports = function(hljs) {
     ]
   }
 };
-},{}],125:[function(require,module,exports){
+},{}],130:[function(require,module,exports){
 module.exports = function(hljs) {
   var COMMAND1 = {
     className: 'command',
@@ -12711,7 +14883,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],126:[function(require,module,exports){
+},{}],131:[function(require,module,exports){
 module.exports = function(hljs) {
   var BUILT_IN_TYPES = 'bool byte i16 i32 i64 double string binary';
   return {
@@ -12746,7 +14918,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],127:[function(require,module,exports){
+},{}],132:[function(require,module,exports){
 module.exports = function(hljs) {
   var TPID = {
     className: 'number',
@@ -12830,7 +15002,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],128:[function(require,module,exports){
+},{}],133:[function(require,module,exports){
 module.exports = function(hljs) {
   var PARAMS = {
     className: 'params',
@@ -12887,7 +15059,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],129:[function(require,module,exports){
+},{}],134:[function(require,module,exports){
 module.exports = function(hljs) {
   var KEYWORDS = {
     keyword:
@@ -12990,7 +15162,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],130:[function(require,module,exports){
+},{}],135:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     keywords: {
@@ -13045,7 +15217,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],131:[function(require,module,exports){
+},{}],136:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     aliases: ['vb'],
@@ -13101,7 +15273,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],132:[function(require,module,exports){
+},{}],137:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     subLanguage: 'xml', subLanguageMode: 'continuous',
@@ -13113,7 +15285,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],133:[function(require,module,exports){
+},{}],138:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     aliases: ['vbs'],
@@ -13152,7 +15324,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],134:[function(require,module,exports){
+},{}],139:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     aliases: ['v'],
@@ -13202,7 +15374,7 @@ module.exports = function(hljs) {
     ]
   }; // return
 };
-},{}],135:[function(require,module,exports){
+},{}],140:[function(require,module,exports){
 module.exports = function(hljs) {
   // Regular expression for VHDL numeric literals.
 
@@ -13258,7 +15430,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],136:[function(require,module,exports){
+},{}],141:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     lexemes: /[!#@\w]+/,
@@ -13321,7 +15493,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],137:[function(require,module,exports){
+},{}],142:[function(require,module,exports){
 module.exports = function(hljs) {
   return {
     case_insensitive: true,
@@ -13469,7 +15641,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],138:[function(require,module,exports){
+},{}],143:[function(require,module,exports){
 module.exports = function(hljs) {
   var BUILTIN_MODULES = 'ObjectLoader Animate MovieCredits Slides Filters Shading Materials LensFlare Mapping VLCAudioVideo StereoDecoder PointCloud NetworkAccess RemoteControl RegExp ChromaKey Snowfall NodeJS Speech Charts';
 
@@ -13549,7 +15721,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],139:[function(require,module,exports){
+},{}],144:[function(require,module,exports){
 module.exports = function(hljs) {
   var XML_IDENT_RE = '[A-Za-z0-9\\._:-]+';
   var PHP = {
@@ -13652,7 +15824,7 @@ module.exports = function(hljs) {
     ]
   };
 };
-},{}],140:[function(require,module,exports){
+},{}],145:[function(require,module,exports){
 /*!
  * jQuery JavaScript Library v2.1.4
  * http://jquery.com/
@@ -22864,7 +25036,7 @@ return jQuery;
 
 }));
 
-},{}],141:[function(require,module,exports){
+},{}],146:[function(require,module,exports){
 (function (global){
 /**
  * marked - a markdown parser
@@ -24141,7 +26313,7 @@ if (typeof module !== 'undefined' && typeof exports === 'object') {
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 
-},{}],142:[function(require,module,exports){
+},{}],147:[function(require,module,exports){
 //! moment.js
 //! version : 2.10.3
 //! authors : Tim Wood, Iskren Chernev, Moment.js contributors
@@ -27253,7 +29425,7 @@ if (typeof module !== 'undefined' && typeof exports === 'object') {
     return _moment;
 
 }));
-},{}],143:[function(require,module,exports){
+},{}],148:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -27280,7 +29452,7 @@ var AutoFocusMixin = {
 
 module.exports = AutoFocusMixin;
 
-},{"./focusNode":261}],144:[function(require,module,exports){
+},{"./focusNode":266}],149:[function(require,module,exports){
 /**
  * Copyright 2013-2015 Facebook, Inc.
  * All rights reserved.
@@ -27775,7 +29947,7 @@ var BeforeInputEventPlugin = {
 
 module.exports = BeforeInputEventPlugin;
 
-},{"./EventConstants":156,"./EventPropagators":161,"./ExecutionEnvironment":162,"./FallbackCompositionState":163,"./SyntheticCompositionEvent":235,"./SyntheticInputEvent":239,"./keyOf":283}],145:[function(require,module,exports){
+},{"./EventConstants":161,"./EventPropagators":166,"./ExecutionEnvironment":167,"./FallbackCompositionState":168,"./SyntheticCompositionEvent":240,"./SyntheticInputEvent":244,"./keyOf":288}],150:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -27900,7 +30072,7 @@ var CSSProperty = {
 
 module.exports = CSSProperty;
 
-},{}],146:[function(require,module,exports){
+},{}],151:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -28083,7 +30255,7 @@ module.exports = CSSPropertyOperations;
 
 }).call(this,require('_process'))
 
-},{"./CSSProperty":145,"./ExecutionEnvironment":162,"./camelizeStyleName":250,"./dangerousStyleValue":255,"./hyphenateStyleName":275,"./memoizeStringOnly":285,"./warning":296,"_process":12}],147:[function(require,module,exports){
+},{"./CSSProperty":150,"./ExecutionEnvironment":167,"./camelizeStyleName":255,"./dangerousStyleValue":260,"./hyphenateStyleName":280,"./memoizeStringOnly":290,"./warning":301,"_process":17}],152:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -28184,7 +30356,7 @@ module.exports = CallbackQueue;
 
 }).call(this,require('_process'))
 
-},{"./Object.assign":168,"./PooledClass":169,"./invariant":277,"_process":12}],148:[function(require,module,exports){
+},{"./Object.assign":173,"./PooledClass":174,"./invariant":282,"_process":17}],153:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -28566,7 +30738,7 @@ var ChangeEventPlugin = {
 
 module.exports = ChangeEventPlugin;
 
-},{"./EventConstants":156,"./EventPluginHub":158,"./EventPropagators":161,"./ExecutionEnvironment":162,"./ReactUpdates":229,"./SyntheticEvent":237,"./isEventSupported":278,"./isTextInputElement":280,"./keyOf":283}],149:[function(require,module,exports){
+},{"./EventConstants":161,"./EventPluginHub":163,"./EventPropagators":166,"./ExecutionEnvironment":167,"./ReactUpdates":234,"./SyntheticEvent":242,"./isEventSupported":283,"./isTextInputElement":285,"./keyOf":288}],154:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -28591,7 +30763,7 @@ var ClientReactRootIndex = {
 
 module.exports = ClientReactRootIndex;
 
-},{}],150:[function(require,module,exports){
+},{}],155:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -28730,7 +30902,7 @@ module.exports = DOMChildrenOperations;
 
 }).call(this,require('_process'))
 
-},{"./Danger":153,"./ReactMultiChildUpdateTypes":214,"./invariant":277,"./setTextContent":291,"_process":12}],151:[function(require,module,exports){
+},{"./Danger":158,"./ReactMultiChildUpdateTypes":219,"./invariant":282,"./setTextContent":296,"_process":17}],156:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -29030,7 +31202,7 @@ module.exports = DOMProperty;
 
 }).call(this,require('_process'))
 
-},{"./invariant":277,"_process":12}],152:[function(require,module,exports){
+},{"./invariant":282,"_process":17}],157:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -29223,7 +31395,7 @@ module.exports = DOMPropertyOperations;
 
 }).call(this,require('_process'))
 
-},{"./DOMProperty":151,"./quoteAttributeValueForBrowser":289,"./warning":296,"_process":12}],153:[function(require,module,exports){
+},{"./DOMProperty":156,"./quoteAttributeValueForBrowser":294,"./warning":301,"_process":17}],158:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -29411,7 +31583,7 @@ module.exports = Danger;
 
 }).call(this,require('_process'))
 
-},{"./ExecutionEnvironment":162,"./createNodesFromMarkup":254,"./emptyFunction":256,"./getMarkupWrap":269,"./invariant":277,"_process":12}],154:[function(require,module,exports){
+},{"./ExecutionEnvironment":167,"./createNodesFromMarkup":259,"./emptyFunction":261,"./getMarkupWrap":274,"./invariant":282,"_process":17}],159:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -29450,7 +31622,7 @@ var DefaultEventPluginOrder = [
 
 module.exports = DefaultEventPluginOrder;
 
-},{"./keyOf":283}],155:[function(require,module,exports){
+},{"./keyOf":288}],160:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -29590,7 +31762,7 @@ var EnterLeaveEventPlugin = {
 
 module.exports = EnterLeaveEventPlugin;
 
-},{"./EventConstants":156,"./EventPropagators":161,"./ReactMount":212,"./SyntheticMouseEvent":241,"./keyOf":283}],156:[function(require,module,exports){
+},{"./EventConstants":161,"./EventPropagators":166,"./ReactMount":217,"./SyntheticMouseEvent":246,"./keyOf":288}],161:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -29662,7 +31834,7 @@ var EventConstants = {
 
 module.exports = EventConstants;
 
-},{"./keyMirror":282}],157:[function(require,module,exports){
+},{"./keyMirror":287}],162:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -29753,7 +31925,7 @@ module.exports = EventListener;
 
 }).call(this,require('_process'))
 
-},{"./emptyFunction":256,"_process":12}],158:[function(require,module,exports){
+},{"./emptyFunction":261,"_process":17}],163:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -30032,7 +32204,7 @@ module.exports = EventPluginHub;
 
 }).call(this,require('_process'))
 
-},{"./EventPluginRegistry":159,"./EventPluginUtils":160,"./accumulateInto":247,"./forEachAccumulated":262,"./invariant":277,"_process":12}],159:[function(require,module,exports){
+},{"./EventPluginRegistry":164,"./EventPluginUtils":165,"./accumulateInto":252,"./forEachAccumulated":267,"./invariant":282,"_process":17}],164:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -30313,7 +32485,7 @@ module.exports = EventPluginRegistry;
 
 }).call(this,require('_process'))
 
-},{"./invariant":277,"_process":12}],160:[function(require,module,exports){
+},{"./invariant":282,"_process":17}],165:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -30535,7 +32707,7 @@ module.exports = EventPluginUtils;
 
 }).call(this,require('_process'))
 
-},{"./EventConstants":156,"./invariant":277,"_process":12}],161:[function(require,module,exports){
+},{"./EventConstants":161,"./invariant":282,"_process":17}],166:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -30678,7 +32850,7 @@ module.exports = EventPropagators;
 
 }).call(this,require('_process'))
 
-},{"./EventConstants":156,"./EventPluginHub":158,"./accumulateInto":247,"./forEachAccumulated":262,"_process":12}],162:[function(require,module,exports){
+},{"./EventConstants":161,"./EventPluginHub":163,"./accumulateInto":252,"./forEachAccumulated":267,"_process":17}],167:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -30722,7 +32894,7 @@ var ExecutionEnvironment = {
 
 module.exports = ExecutionEnvironment;
 
-},{}],163:[function(require,module,exports){
+},{}],168:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -30813,7 +32985,7 @@ PooledClass.addPoolingTo(FallbackCompositionState);
 
 module.exports = FallbackCompositionState;
 
-},{"./Object.assign":168,"./PooledClass":169,"./getTextContentAccessor":272}],164:[function(require,module,exports){
+},{"./Object.assign":173,"./PooledClass":174,"./getTextContentAccessor":277}],169:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -31024,7 +33196,7 @@ var HTMLDOMPropertyConfig = {
 
 module.exports = HTMLDOMPropertyConfig;
 
-},{"./DOMProperty":151,"./ExecutionEnvironment":162}],165:[function(require,module,exports){
+},{"./DOMProperty":156,"./ExecutionEnvironment":167}],170:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -31181,7 +33353,7 @@ module.exports = LinkedValueUtils;
 
 }).call(this,require('_process'))
 
-},{"./ReactPropTypes":220,"./invariant":277,"_process":12}],166:[function(require,module,exports){
+},{"./ReactPropTypes":225,"./invariant":282,"_process":17}],171:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -31239,7 +33411,7 @@ module.exports = LocalEventTrapMixin;
 
 }).call(this,require('_process'))
 
-},{"./ReactBrowserEventEmitter":172,"./accumulateInto":247,"./forEachAccumulated":262,"./invariant":277,"_process":12}],167:[function(require,module,exports){
+},{"./ReactBrowserEventEmitter":177,"./accumulateInto":252,"./forEachAccumulated":267,"./invariant":282,"_process":17}],172:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -31297,7 +33469,7 @@ var MobileSafariClickEventPlugin = {
 
 module.exports = MobileSafariClickEventPlugin;
 
-},{"./EventConstants":156,"./emptyFunction":256}],168:[function(require,module,exports){
+},{"./EventConstants":161,"./emptyFunction":261}],173:[function(require,module,exports){
 /**
  * Copyright 2014-2015, Facebook, Inc.
  * All rights reserved.
@@ -31346,7 +33518,7 @@ function assign(target, sources) {
 
 module.exports = assign;
 
-},{}],169:[function(require,module,exports){
+},{}],174:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -31463,7 +33635,7 @@ module.exports = PooledClass;
 
 }).call(this,require('_process'))
 
-},{"./invariant":277,"_process":12}],170:[function(require,module,exports){
+},{"./invariant":282,"_process":17}],175:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -31616,7 +33788,7 @@ module.exports = React;
 
 }).call(this,require('_process'))
 
-},{"./EventPluginUtils":160,"./ExecutionEnvironment":162,"./Object.assign":168,"./ReactChildren":174,"./ReactClass":175,"./ReactComponent":176,"./ReactContext":180,"./ReactCurrentOwner":181,"./ReactDOM":182,"./ReactDOMTextComponent":193,"./ReactDefaultInjection":196,"./ReactElement":199,"./ReactElementValidator":200,"./ReactInstanceHandles":208,"./ReactMount":212,"./ReactPerf":217,"./ReactPropTypes":220,"./ReactReconciler":223,"./ReactServerRendering":226,"./findDOMNode":259,"./onlyChild":286,"_process":12}],171:[function(require,module,exports){
+},{"./EventPluginUtils":165,"./ExecutionEnvironment":167,"./Object.assign":173,"./ReactChildren":179,"./ReactClass":180,"./ReactComponent":181,"./ReactContext":185,"./ReactCurrentOwner":186,"./ReactDOM":187,"./ReactDOMTextComponent":198,"./ReactDefaultInjection":201,"./ReactElement":204,"./ReactElementValidator":205,"./ReactInstanceHandles":213,"./ReactMount":217,"./ReactPerf":222,"./ReactPropTypes":225,"./ReactReconciler":228,"./ReactServerRendering":231,"./findDOMNode":264,"./onlyChild":291,"_process":17}],176:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -31647,7 +33819,7 @@ var ReactBrowserComponentMixin = {
 
 module.exports = ReactBrowserComponentMixin;
 
-},{"./findDOMNode":259}],172:[function(require,module,exports){
+},{"./findDOMNode":264}],177:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -32000,7 +34172,7 @@ var ReactBrowserEventEmitter = assign({}, ReactEventEmitterMixin, {
 
 module.exports = ReactBrowserEventEmitter;
 
-},{"./EventConstants":156,"./EventPluginHub":158,"./EventPluginRegistry":159,"./Object.assign":168,"./ReactEventEmitterMixin":203,"./ViewportMetrics":246,"./isEventSupported":278}],173:[function(require,module,exports){
+},{"./EventConstants":161,"./EventPluginHub":163,"./EventPluginRegistry":164,"./Object.assign":173,"./ReactEventEmitterMixin":208,"./ViewportMetrics":251,"./isEventSupported":283}],178:[function(require,module,exports){
 /**
  * Copyright 2014-2015, Facebook, Inc.
  * All rights reserved.
@@ -32127,7 +34299,7 @@ var ReactChildReconciler = {
 
 module.exports = ReactChildReconciler;
 
-},{"./ReactReconciler":223,"./flattenChildren":260,"./instantiateReactComponent":276,"./shouldUpdateReactComponent":293}],174:[function(require,module,exports){
+},{"./ReactReconciler":228,"./flattenChildren":265,"./instantiateReactComponent":281,"./shouldUpdateReactComponent":298}],179:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -32281,7 +34453,7 @@ module.exports = ReactChildren;
 
 }).call(this,require('_process'))
 
-},{"./PooledClass":169,"./ReactFragment":205,"./traverseAllChildren":295,"./warning":296,"_process":12}],175:[function(require,module,exports){
+},{"./PooledClass":174,"./ReactFragment":210,"./traverseAllChildren":300,"./warning":301,"_process":17}],180:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -33228,7 +35400,7 @@ module.exports = ReactClass;
 
 }).call(this,require('_process'))
 
-},{"./Object.assign":168,"./ReactComponent":176,"./ReactCurrentOwner":181,"./ReactElement":199,"./ReactErrorUtils":202,"./ReactInstanceMap":209,"./ReactLifeCycle":210,"./ReactPropTypeLocationNames":218,"./ReactPropTypeLocations":219,"./ReactUpdateQueue":228,"./invariant":277,"./keyMirror":282,"./keyOf":283,"./warning":296,"_process":12}],176:[function(require,module,exports){
+},{"./Object.assign":173,"./ReactComponent":181,"./ReactCurrentOwner":186,"./ReactElement":204,"./ReactErrorUtils":207,"./ReactInstanceMap":214,"./ReactLifeCycle":215,"./ReactPropTypeLocationNames":223,"./ReactPropTypeLocations":224,"./ReactUpdateQueue":233,"./invariant":282,"./keyMirror":287,"./keyOf":288,"./warning":301,"_process":17}],181:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -33383,7 +35555,7 @@ module.exports = ReactComponent;
 
 }).call(this,require('_process'))
 
-},{"./ReactUpdateQueue":228,"./invariant":277,"./warning":296,"_process":12}],177:[function(require,module,exports){
+},{"./ReactUpdateQueue":233,"./invariant":282,"./warning":301,"_process":17}],182:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -33430,7 +35602,7 @@ var ReactComponentBrowserEnvironment = {
 
 module.exports = ReactComponentBrowserEnvironment;
 
-},{"./ReactDOMIDOperations":186,"./ReactMount":212}],178:[function(require,module,exports){
+},{"./ReactDOMIDOperations":191,"./ReactMount":217}],183:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -33492,7 +35664,7 @@ module.exports = ReactComponentEnvironment;
 
 }).call(this,require('_process'))
 
-},{"./invariant":277,"_process":12}],179:[function(require,module,exports){
+},{"./invariant":282,"_process":17}],184:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -34406,7 +36578,7 @@ module.exports = ReactCompositeComponent;
 
 }).call(this,require('_process'))
 
-},{"./Object.assign":168,"./ReactComponentEnvironment":178,"./ReactContext":180,"./ReactCurrentOwner":181,"./ReactElement":199,"./ReactElementValidator":200,"./ReactInstanceMap":209,"./ReactLifeCycle":210,"./ReactNativeComponent":215,"./ReactPerf":217,"./ReactPropTypeLocationNames":218,"./ReactPropTypeLocations":219,"./ReactReconciler":223,"./ReactUpdates":229,"./emptyObject":257,"./invariant":277,"./shouldUpdateReactComponent":293,"./warning":296,"_process":12}],180:[function(require,module,exports){
+},{"./Object.assign":173,"./ReactComponentEnvironment":183,"./ReactContext":185,"./ReactCurrentOwner":186,"./ReactElement":204,"./ReactElementValidator":205,"./ReactInstanceMap":214,"./ReactLifeCycle":215,"./ReactNativeComponent":220,"./ReactPerf":222,"./ReactPropTypeLocationNames":223,"./ReactPropTypeLocations":224,"./ReactReconciler":228,"./ReactUpdates":234,"./emptyObject":262,"./invariant":282,"./shouldUpdateReactComponent":298,"./warning":301,"_process":17}],185:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -34485,7 +36657,7 @@ module.exports = ReactContext;
 
 }).call(this,require('_process'))
 
-},{"./Object.assign":168,"./emptyObject":257,"./warning":296,"_process":12}],181:[function(require,module,exports){
+},{"./Object.assign":173,"./emptyObject":262,"./warning":301,"_process":17}],186:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -34519,7 +36691,7 @@ var ReactCurrentOwner = {
 
 module.exports = ReactCurrentOwner;
 
-},{}],182:[function(require,module,exports){
+},{}],187:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -34699,7 +36871,7 @@ module.exports = ReactDOM;
 
 }).call(this,require('_process'))
 
-},{"./ReactElement":199,"./ReactElementValidator":200,"./mapObject":284,"_process":12}],183:[function(require,module,exports){
+},{"./ReactElement":204,"./ReactElementValidator":205,"./mapObject":289,"_process":17}],188:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -34763,7 +36935,7 @@ var ReactDOMButton = ReactClass.createClass({
 
 module.exports = ReactDOMButton;
 
-},{"./AutoFocusMixin":143,"./ReactBrowserComponentMixin":171,"./ReactClass":175,"./ReactElement":199,"./keyMirror":282}],184:[function(require,module,exports){
+},{"./AutoFocusMixin":148,"./ReactBrowserComponentMixin":176,"./ReactClass":180,"./ReactElement":204,"./keyMirror":287}],189:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -35274,7 +37446,7 @@ module.exports = ReactDOMComponent;
 
 }).call(this,require('_process'))
 
-},{"./CSSPropertyOperations":146,"./DOMProperty":151,"./DOMPropertyOperations":152,"./Object.assign":168,"./ReactBrowserEventEmitter":172,"./ReactComponentBrowserEnvironment":177,"./ReactMount":212,"./ReactMultiChild":213,"./ReactPerf":217,"./escapeTextContentForBrowser":258,"./invariant":277,"./isEventSupported":278,"./keyOf":283,"./warning":296,"_process":12}],185:[function(require,module,exports){
+},{"./CSSPropertyOperations":151,"./DOMProperty":156,"./DOMPropertyOperations":157,"./Object.assign":173,"./ReactBrowserEventEmitter":177,"./ReactComponentBrowserEnvironment":182,"./ReactMount":217,"./ReactMultiChild":218,"./ReactPerf":222,"./escapeTextContentForBrowser":263,"./invariant":282,"./isEventSupported":283,"./keyOf":288,"./warning":301,"_process":17}],190:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -35323,7 +37495,7 @@ var ReactDOMForm = ReactClass.createClass({
 
 module.exports = ReactDOMForm;
 
-},{"./EventConstants":156,"./LocalEventTrapMixin":166,"./ReactBrowserComponentMixin":171,"./ReactClass":175,"./ReactElement":199}],186:[function(require,module,exports){
+},{"./EventConstants":161,"./LocalEventTrapMixin":171,"./ReactBrowserComponentMixin":176,"./ReactClass":180,"./ReactElement":204}],191:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -35492,7 +37664,7 @@ module.exports = ReactDOMIDOperations;
 
 }).call(this,require('_process'))
 
-},{"./CSSPropertyOperations":146,"./DOMChildrenOperations":150,"./DOMPropertyOperations":152,"./ReactMount":212,"./ReactPerf":217,"./invariant":277,"./setInnerHTML":290,"_process":12}],187:[function(require,module,exports){
+},{"./CSSPropertyOperations":151,"./DOMChildrenOperations":155,"./DOMPropertyOperations":157,"./ReactMount":217,"./ReactPerf":222,"./invariant":282,"./setInnerHTML":295,"_process":17}],192:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -35537,7 +37709,7 @@ var ReactDOMIframe = ReactClass.createClass({
 
 module.exports = ReactDOMIframe;
 
-},{"./EventConstants":156,"./LocalEventTrapMixin":166,"./ReactBrowserComponentMixin":171,"./ReactClass":175,"./ReactElement":199}],188:[function(require,module,exports){
+},{"./EventConstants":161,"./LocalEventTrapMixin":171,"./ReactBrowserComponentMixin":176,"./ReactClass":180,"./ReactElement":204}],193:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -35583,7 +37755,7 @@ var ReactDOMImg = ReactClass.createClass({
 
 module.exports = ReactDOMImg;
 
-},{"./EventConstants":156,"./LocalEventTrapMixin":166,"./ReactBrowserComponentMixin":171,"./ReactClass":175,"./ReactElement":199}],189:[function(require,module,exports){
+},{"./EventConstants":161,"./LocalEventTrapMixin":171,"./ReactBrowserComponentMixin":176,"./ReactClass":180,"./ReactElement":204}],194:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -35761,7 +37933,7 @@ module.exports = ReactDOMInput;
 
 }).call(this,require('_process'))
 
-},{"./AutoFocusMixin":143,"./DOMPropertyOperations":152,"./LinkedValueUtils":165,"./Object.assign":168,"./ReactBrowserComponentMixin":171,"./ReactClass":175,"./ReactElement":199,"./ReactMount":212,"./ReactUpdates":229,"./invariant":277,"_process":12}],190:[function(require,module,exports){
+},{"./AutoFocusMixin":148,"./DOMPropertyOperations":157,"./LinkedValueUtils":170,"./Object.assign":173,"./ReactBrowserComponentMixin":176,"./ReactClass":180,"./ReactElement":204,"./ReactMount":217,"./ReactUpdates":234,"./invariant":282,"_process":17}],195:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -35814,7 +37986,7 @@ module.exports = ReactDOMOption;
 
 }).call(this,require('_process'))
 
-},{"./ReactBrowserComponentMixin":171,"./ReactClass":175,"./ReactElement":199,"./warning":296,"_process":12}],191:[function(require,module,exports){
+},{"./ReactBrowserComponentMixin":176,"./ReactClass":180,"./ReactElement":204,"./warning":301,"_process":17}],196:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -35992,7 +38164,7 @@ var ReactDOMSelect = ReactClass.createClass({
 
 module.exports = ReactDOMSelect;
 
-},{"./AutoFocusMixin":143,"./LinkedValueUtils":165,"./Object.assign":168,"./ReactBrowserComponentMixin":171,"./ReactClass":175,"./ReactElement":199,"./ReactUpdates":229}],192:[function(require,module,exports){
+},{"./AutoFocusMixin":148,"./LinkedValueUtils":170,"./Object.assign":173,"./ReactBrowserComponentMixin":176,"./ReactClass":180,"./ReactElement":204,"./ReactUpdates":234}],197:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -36205,7 +38377,7 @@ var ReactDOMSelection = {
 
 module.exports = ReactDOMSelection;
 
-},{"./ExecutionEnvironment":162,"./getNodeForCharacterOffset":270,"./getTextContentAccessor":272}],193:[function(require,module,exports){
+},{"./ExecutionEnvironment":167,"./getNodeForCharacterOffset":275,"./getTextContentAccessor":277}],198:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -36322,7 +38494,7 @@ assign(ReactDOMTextComponent.prototype, {
 
 module.exports = ReactDOMTextComponent;
 
-},{"./DOMPropertyOperations":152,"./Object.assign":168,"./ReactComponentBrowserEnvironment":177,"./ReactDOMComponent":184,"./escapeTextContentForBrowser":258}],194:[function(require,module,exports){
+},{"./DOMPropertyOperations":157,"./Object.assign":173,"./ReactComponentBrowserEnvironment":182,"./ReactDOMComponent":189,"./escapeTextContentForBrowser":263}],199:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -36463,7 +38635,7 @@ module.exports = ReactDOMTextarea;
 
 }).call(this,require('_process'))
 
-},{"./AutoFocusMixin":143,"./DOMPropertyOperations":152,"./LinkedValueUtils":165,"./Object.assign":168,"./ReactBrowserComponentMixin":171,"./ReactClass":175,"./ReactElement":199,"./ReactUpdates":229,"./invariant":277,"./warning":296,"_process":12}],195:[function(require,module,exports){
+},{"./AutoFocusMixin":148,"./DOMPropertyOperations":157,"./LinkedValueUtils":170,"./Object.assign":173,"./ReactBrowserComponentMixin":176,"./ReactClass":180,"./ReactElement":204,"./ReactUpdates":234,"./invariant":282,"./warning":301,"_process":17}],200:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -36536,7 +38708,7 @@ var ReactDefaultBatchingStrategy = {
 
 module.exports = ReactDefaultBatchingStrategy;
 
-},{"./Object.assign":168,"./ReactUpdates":229,"./Transaction":245,"./emptyFunction":256}],196:[function(require,module,exports){
+},{"./Object.assign":173,"./ReactUpdates":234,"./Transaction":250,"./emptyFunction":261}],201:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -36696,7 +38868,7 @@ module.exports = {
 
 }).call(this,require('_process'))
 
-},{"./BeforeInputEventPlugin":144,"./ChangeEventPlugin":148,"./ClientReactRootIndex":149,"./DefaultEventPluginOrder":154,"./EnterLeaveEventPlugin":155,"./ExecutionEnvironment":162,"./HTMLDOMPropertyConfig":164,"./MobileSafariClickEventPlugin":167,"./ReactBrowserComponentMixin":171,"./ReactClass":175,"./ReactComponentBrowserEnvironment":177,"./ReactDOMButton":183,"./ReactDOMComponent":184,"./ReactDOMForm":185,"./ReactDOMIDOperations":186,"./ReactDOMIframe":187,"./ReactDOMImg":188,"./ReactDOMInput":189,"./ReactDOMOption":190,"./ReactDOMSelect":191,"./ReactDOMTextComponent":193,"./ReactDOMTextarea":194,"./ReactDefaultBatchingStrategy":195,"./ReactDefaultPerf":197,"./ReactElement":199,"./ReactEventListener":204,"./ReactInjection":206,"./ReactInstanceHandles":208,"./ReactMount":212,"./ReactReconcileTransaction":222,"./SVGDOMPropertyConfig":230,"./SelectEventPlugin":231,"./ServerReactRootIndex":232,"./SimpleEventPlugin":233,"./createFullPageComponent":253,"_process":12}],197:[function(require,module,exports){
+},{"./BeforeInputEventPlugin":149,"./ChangeEventPlugin":153,"./ClientReactRootIndex":154,"./DefaultEventPluginOrder":159,"./EnterLeaveEventPlugin":160,"./ExecutionEnvironment":167,"./HTMLDOMPropertyConfig":169,"./MobileSafariClickEventPlugin":172,"./ReactBrowserComponentMixin":176,"./ReactClass":180,"./ReactComponentBrowserEnvironment":182,"./ReactDOMButton":188,"./ReactDOMComponent":189,"./ReactDOMForm":190,"./ReactDOMIDOperations":191,"./ReactDOMIframe":192,"./ReactDOMImg":193,"./ReactDOMInput":194,"./ReactDOMOption":195,"./ReactDOMSelect":196,"./ReactDOMTextComponent":198,"./ReactDOMTextarea":199,"./ReactDefaultBatchingStrategy":200,"./ReactDefaultPerf":202,"./ReactElement":204,"./ReactEventListener":209,"./ReactInjection":211,"./ReactInstanceHandles":213,"./ReactMount":217,"./ReactReconcileTransaction":227,"./SVGDOMPropertyConfig":235,"./SelectEventPlugin":236,"./ServerReactRootIndex":237,"./SimpleEventPlugin":238,"./createFullPageComponent":258,"_process":17}],202:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -36962,7 +39134,7 @@ var ReactDefaultPerf = {
 
 module.exports = ReactDefaultPerf;
 
-},{"./DOMProperty":151,"./ReactDefaultPerfAnalysis":198,"./ReactMount":212,"./ReactPerf":217,"./performanceNow":288}],198:[function(require,module,exports){
+},{"./DOMProperty":156,"./ReactDefaultPerfAnalysis":203,"./ReactMount":217,"./ReactPerf":222,"./performanceNow":293}],203:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -37168,7 +39340,7 @@ var ReactDefaultPerfAnalysis = {
 
 module.exports = ReactDefaultPerfAnalysis;
 
-},{"./Object.assign":168}],199:[function(require,module,exports){
+},{"./Object.assign":173}],204:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -37477,7 +39649,7 @@ module.exports = ReactElement;
 
 }).call(this,require('_process'))
 
-},{"./Object.assign":168,"./ReactContext":180,"./ReactCurrentOwner":181,"./warning":296,"_process":12}],200:[function(require,module,exports){
+},{"./Object.assign":173,"./ReactContext":185,"./ReactCurrentOwner":186,"./warning":301,"_process":17}],205:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -37943,7 +40115,7 @@ module.exports = ReactElementValidator;
 
 }).call(this,require('_process'))
 
-},{"./ReactCurrentOwner":181,"./ReactElement":199,"./ReactFragment":205,"./ReactNativeComponent":215,"./ReactPropTypeLocationNames":218,"./ReactPropTypeLocations":219,"./getIteratorFn":268,"./invariant":277,"./warning":296,"_process":12}],201:[function(require,module,exports){
+},{"./ReactCurrentOwner":186,"./ReactElement":204,"./ReactFragment":210,"./ReactNativeComponent":220,"./ReactPropTypeLocationNames":223,"./ReactPropTypeLocations":224,"./getIteratorFn":273,"./invariant":282,"./warning":301,"_process":17}],206:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -38039,7 +40211,7 @@ module.exports = ReactEmptyComponent;
 
 }).call(this,require('_process'))
 
-},{"./ReactElement":199,"./ReactInstanceMap":209,"./invariant":277,"_process":12}],202:[function(require,module,exports){
+},{"./ReactElement":204,"./ReactInstanceMap":214,"./invariant":282,"_process":17}],207:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -38071,7 +40243,7 @@ var ReactErrorUtils = {
 
 module.exports = ReactErrorUtils;
 
-},{}],203:[function(require,module,exports){
+},{}],208:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -38121,7 +40293,7 @@ var ReactEventEmitterMixin = {
 
 module.exports = ReactEventEmitterMixin;
 
-},{"./EventPluginHub":158}],204:[function(require,module,exports){
+},{"./EventPluginHub":163}],209:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -38304,7 +40476,7 @@ var ReactEventListener = {
 
 module.exports = ReactEventListener;
 
-},{"./EventListener":157,"./ExecutionEnvironment":162,"./Object.assign":168,"./PooledClass":169,"./ReactInstanceHandles":208,"./ReactMount":212,"./ReactUpdates":229,"./getEventTarget":267,"./getUnboundedScrollPosition":273}],205:[function(require,module,exports){
+},{"./EventListener":162,"./ExecutionEnvironment":167,"./Object.assign":173,"./PooledClass":174,"./ReactInstanceHandles":213,"./ReactMount":217,"./ReactUpdates":234,"./getEventTarget":272,"./getUnboundedScrollPosition":278}],210:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2015, Facebook, Inc.
@@ -38490,7 +40662,7 @@ module.exports = ReactFragment;
 
 }).call(this,require('_process'))
 
-},{"./ReactElement":199,"./warning":296,"_process":12}],206:[function(require,module,exports){
+},{"./ReactElement":204,"./warning":301,"_process":17}],211:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -38532,7 +40704,7 @@ var ReactInjection = {
 
 module.exports = ReactInjection;
 
-},{"./DOMProperty":151,"./EventPluginHub":158,"./ReactBrowserEventEmitter":172,"./ReactClass":175,"./ReactComponentEnvironment":178,"./ReactDOMComponent":184,"./ReactEmptyComponent":201,"./ReactNativeComponent":215,"./ReactPerf":217,"./ReactRootIndex":225,"./ReactUpdates":229}],207:[function(require,module,exports){
+},{"./DOMProperty":156,"./EventPluginHub":163,"./ReactBrowserEventEmitter":177,"./ReactClass":180,"./ReactComponentEnvironment":183,"./ReactDOMComponent":189,"./ReactEmptyComponent":206,"./ReactNativeComponent":220,"./ReactPerf":222,"./ReactRootIndex":230,"./ReactUpdates":234}],212:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -38667,7 +40839,7 @@ var ReactInputSelection = {
 
 module.exports = ReactInputSelection;
 
-},{"./ReactDOMSelection":192,"./containsNode":251,"./focusNode":261,"./getActiveElement":263}],208:[function(require,module,exports){
+},{"./ReactDOMSelection":197,"./containsNode":256,"./focusNode":266,"./getActiveElement":268}],213:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -39004,7 +41176,7 @@ module.exports = ReactInstanceHandles;
 
 }).call(this,require('_process'))
 
-},{"./ReactRootIndex":225,"./invariant":277,"_process":12}],209:[function(require,module,exports){
+},{"./ReactRootIndex":230,"./invariant":282,"_process":17}],214:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -39053,7 +41225,7 @@ var ReactInstanceMap = {
 
 module.exports = ReactInstanceMap;
 
-},{}],210:[function(require,module,exports){
+},{}],215:[function(require,module,exports){
 /**
  * Copyright 2015, Facebook, Inc.
  * All rights reserved.
@@ -39090,7 +41262,7 @@ var ReactLifeCycle = {
 
 module.exports = ReactLifeCycle;
 
-},{}],211:[function(require,module,exports){
+},{}],216:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -39138,7 +41310,7 @@ var ReactMarkupChecksum = {
 
 module.exports = ReactMarkupChecksum;
 
-},{"./adler32":248}],212:[function(require,module,exports){
+},{"./adler32":253}],217:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -40030,7 +42202,7 @@ module.exports = ReactMount;
 
 }).call(this,require('_process'))
 
-},{"./DOMProperty":151,"./ReactBrowserEventEmitter":172,"./ReactCurrentOwner":181,"./ReactElement":199,"./ReactElementValidator":200,"./ReactEmptyComponent":201,"./ReactInstanceHandles":208,"./ReactInstanceMap":209,"./ReactMarkupChecksum":211,"./ReactPerf":217,"./ReactReconciler":223,"./ReactUpdateQueue":228,"./ReactUpdates":229,"./containsNode":251,"./emptyObject":257,"./getReactRootElementInContainer":271,"./instantiateReactComponent":276,"./invariant":277,"./setInnerHTML":290,"./shouldUpdateReactComponent":293,"./warning":296,"_process":12}],213:[function(require,module,exports){
+},{"./DOMProperty":156,"./ReactBrowserEventEmitter":177,"./ReactCurrentOwner":186,"./ReactElement":204,"./ReactElementValidator":205,"./ReactEmptyComponent":206,"./ReactInstanceHandles":213,"./ReactInstanceMap":214,"./ReactMarkupChecksum":216,"./ReactPerf":222,"./ReactReconciler":228,"./ReactUpdateQueue":233,"./ReactUpdates":234,"./containsNode":256,"./emptyObject":262,"./getReactRootElementInContainer":276,"./instantiateReactComponent":281,"./invariant":282,"./setInnerHTML":295,"./shouldUpdateReactComponent":298,"./warning":301,"_process":17}],218:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -40460,7 +42632,7 @@ var ReactMultiChild = {
 
 module.exports = ReactMultiChild;
 
-},{"./ReactChildReconciler":173,"./ReactComponentEnvironment":178,"./ReactMultiChildUpdateTypes":214,"./ReactReconciler":223}],214:[function(require,module,exports){
+},{"./ReactChildReconciler":178,"./ReactComponentEnvironment":183,"./ReactMultiChildUpdateTypes":219,"./ReactReconciler":228}],219:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -40493,7 +42665,7 @@ var ReactMultiChildUpdateTypes = keyMirror({
 
 module.exports = ReactMultiChildUpdateTypes;
 
-},{"./keyMirror":282}],215:[function(require,module,exports){
+},{"./keyMirror":287}],220:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -40601,7 +42773,7 @@ module.exports = ReactNativeComponent;
 
 }).call(this,require('_process'))
 
-},{"./Object.assign":168,"./invariant":277,"_process":12}],216:[function(require,module,exports){
+},{"./Object.assign":173,"./invariant":282,"_process":17}],221:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -40714,7 +42886,7 @@ module.exports = ReactOwner;
 
 }).call(this,require('_process'))
 
-},{"./invariant":277,"_process":12}],217:[function(require,module,exports){
+},{"./invariant":282,"_process":17}],222:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -40819,7 +42991,7 @@ module.exports = ReactPerf;
 
 }).call(this,require('_process'))
 
-},{"_process":12}],218:[function(require,module,exports){
+},{"_process":17}],223:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -40848,7 +43020,7 @@ module.exports = ReactPropTypeLocationNames;
 
 }).call(this,require('_process'))
 
-},{"_process":12}],219:[function(require,module,exports){
+},{"_process":17}],224:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -40872,7 +43044,7 @@ var ReactPropTypeLocations = keyMirror({
 
 module.exports = ReactPropTypeLocations;
 
-},{"./keyMirror":282}],220:[function(require,module,exports){
+},{"./keyMirror":287}],225:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -41221,7 +43393,7 @@ function getPreciseType(propValue) {
 
 module.exports = ReactPropTypes;
 
-},{"./ReactElement":199,"./ReactFragment":205,"./ReactPropTypeLocationNames":218,"./emptyFunction":256}],221:[function(require,module,exports){
+},{"./ReactElement":204,"./ReactFragment":210,"./ReactPropTypeLocationNames":223,"./emptyFunction":261}],226:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -41277,7 +43449,7 @@ PooledClass.addPoolingTo(ReactPutListenerQueue);
 
 module.exports = ReactPutListenerQueue;
 
-},{"./Object.assign":168,"./PooledClass":169,"./ReactBrowserEventEmitter":172}],222:[function(require,module,exports){
+},{"./Object.assign":173,"./PooledClass":174,"./ReactBrowserEventEmitter":177}],227:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -41453,7 +43625,7 @@ PooledClass.addPoolingTo(ReactReconcileTransaction);
 
 module.exports = ReactReconcileTransaction;
 
-},{"./CallbackQueue":147,"./Object.assign":168,"./PooledClass":169,"./ReactBrowserEventEmitter":172,"./ReactInputSelection":207,"./ReactPutListenerQueue":221,"./Transaction":245}],223:[function(require,module,exports){
+},{"./CallbackQueue":152,"./Object.assign":173,"./PooledClass":174,"./ReactBrowserEventEmitter":177,"./ReactInputSelection":212,"./ReactPutListenerQueue":226,"./Transaction":250}],228:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -41578,7 +43750,7 @@ module.exports = ReactReconciler;
 
 }).call(this,require('_process'))
 
-},{"./ReactElementValidator":200,"./ReactRef":224,"_process":12}],224:[function(require,module,exports){
+},{"./ReactElementValidator":205,"./ReactRef":229,"_process":17}],229:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -41649,7 +43821,7 @@ ReactRef.detachRefs = function(instance, element) {
 
 module.exports = ReactRef;
 
-},{"./ReactOwner":216}],225:[function(require,module,exports){
+},{"./ReactOwner":221}],230:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -41680,7 +43852,7 @@ var ReactRootIndex = {
 
 module.exports = ReactRootIndex;
 
-},{}],226:[function(require,module,exports){
+},{}],231:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -41763,7 +43935,7 @@ module.exports = {
 
 }).call(this,require('_process'))
 
-},{"./ReactElement":199,"./ReactInstanceHandles":208,"./ReactMarkupChecksum":211,"./ReactServerRenderingTransaction":227,"./emptyObject":257,"./instantiateReactComponent":276,"./invariant":277,"_process":12}],227:[function(require,module,exports){
+},{"./ReactElement":204,"./ReactInstanceHandles":213,"./ReactMarkupChecksum":216,"./ReactServerRenderingTransaction":232,"./emptyObject":262,"./instantiateReactComponent":281,"./invariant":282,"_process":17}],232:[function(require,module,exports){
 /**
  * Copyright 2014-2015, Facebook, Inc.
  * All rights reserved.
@@ -41876,7 +44048,7 @@ PooledClass.addPoolingTo(ReactServerRenderingTransaction);
 
 module.exports = ReactServerRenderingTransaction;
 
-},{"./CallbackQueue":147,"./Object.assign":168,"./PooledClass":169,"./ReactPutListenerQueue":221,"./Transaction":245,"./emptyFunction":256}],228:[function(require,module,exports){
+},{"./CallbackQueue":152,"./Object.assign":173,"./PooledClass":174,"./ReactPutListenerQueue":226,"./Transaction":250,"./emptyFunction":261}],233:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2015, Facebook, Inc.
@@ -42176,7 +44348,7 @@ module.exports = ReactUpdateQueue;
 
 }).call(this,require('_process'))
 
-},{"./Object.assign":168,"./ReactCurrentOwner":181,"./ReactElement":199,"./ReactInstanceMap":209,"./ReactLifeCycle":210,"./ReactUpdates":229,"./invariant":277,"./warning":296,"_process":12}],229:[function(require,module,exports){
+},{"./Object.assign":173,"./ReactCurrentOwner":186,"./ReactElement":204,"./ReactInstanceMap":214,"./ReactLifeCycle":215,"./ReactUpdates":234,"./invariant":282,"./warning":301,"_process":17}],234:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -42459,7 +44631,7 @@ module.exports = ReactUpdates;
 
 }).call(this,require('_process'))
 
-},{"./CallbackQueue":147,"./Object.assign":168,"./PooledClass":169,"./ReactCurrentOwner":181,"./ReactPerf":217,"./ReactReconciler":223,"./Transaction":245,"./invariant":277,"./warning":296,"_process":12}],230:[function(require,module,exports){
+},{"./CallbackQueue":152,"./Object.assign":173,"./PooledClass":174,"./ReactCurrentOwner":186,"./ReactPerf":222,"./ReactReconciler":228,"./Transaction":250,"./invariant":282,"./warning":301,"_process":17}],235:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -42553,7 +44725,7 @@ var SVGDOMPropertyConfig = {
 
 module.exports = SVGDOMPropertyConfig;
 
-},{"./DOMProperty":151}],231:[function(require,module,exports){
+},{"./DOMProperty":156}],236:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -42748,7 +44920,7 @@ var SelectEventPlugin = {
 
 module.exports = SelectEventPlugin;
 
-},{"./EventConstants":156,"./EventPropagators":161,"./ReactInputSelection":207,"./SyntheticEvent":237,"./getActiveElement":263,"./isTextInputElement":280,"./keyOf":283,"./shallowEqual":292}],232:[function(require,module,exports){
+},{"./EventConstants":161,"./EventPropagators":166,"./ReactInputSelection":212,"./SyntheticEvent":242,"./getActiveElement":268,"./isTextInputElement":285,"./keyOf":288,"./shallowEqual":297}],237:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -42779,7 +44951,7 @@ var ServerReactRootIndex = {
 
 module.exports = ServerReactRootIndex;
 
-},{}],233:[function(require,module,exports){
+},{}],238:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -43208,7 +45380,7 @@ module.exports = SimpleEventPlugin;
 
 }).call(this,require('_process'))
 
-},{"./EventConstants":156,"./EventPluginUtils":160,"./EventPropagators":161,"./SyntheticClipboardEvent":234,"./SyntheticDragEvent":236,"./SyntheticEvent":237,"./SyntheticFocusEvent":238,"./SyntheticKeyboardEvent":240,"./SyntheticMouseEvent":241,"./SyntheticTouchEvent":242,"./SyntheticUIEvent":243,"./SyntheticWheelEvent":244,"./getEventCharCode":264,"./invariant":277,"./keyOf":283,"./warning":296,"_process":12}],234:[function(require,module,exports){
+},{"./EventConstants":161,"./EventPluginUtils":165,"./EventPropagators":166,"./SyntheticClipboardEvent":239,"./SyntheticDragEvent":241,"./SyntheticEvent":242,"./SyntheticFocusEvent":243,"./SyntheticKeyboardEvent":245,"./SyntheticMouseEvent":246,"./SyntheticTouchEvent":247,"./SyntheticUIEvent":248,"./SyntheticWheelEvent":249,"./getEventCharCode":269,"./invariant":282,"./keyOf":288,"./warning":301,"_process":17}],239:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -43253,7 +45425,7 @@ SyntheticEvent.augmentClass(SyntheticClipboardEvent, ClipboardEventInterface);
 
 module.exports = SyntheticClipboardEvent;
 
-},{"./SyntheticEvent":237}],235:[function(require,module,exports){
+},{"./SyntheticEvent":242}],240:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -43298,7 +45470,7 @@ SyntheticEvent.augmentClass(
 
 module.exports = SyntheticCompositionEvent;
 
-},{"./SyntheticEvent":237}],236:[function(require,module,exports){
+},{"./SyntheticEvent":242}],241:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -43337,7 +45509,7 @@ SyntheticMouseEvent.augmentClass(SyntheticDragEvent, DragEventInterface);
 
 module.exports = SyntheticDragEvent;
 
-},{"./SyntheticMouseEvent":241}],237:[function(require,module,exports){
+},{"./SyntheticMouseEvent":246}],242:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -43503,7 +45675,7 @@ PooledClass.addPoolingTo(SyntheticEvent, PooledClass.threeArgumentPooler);
 
 module.exports = SyntheticEvent;
 
-},{"./Object.assign":168,"./PooledClass":169,"./emptyFunction":256,"./getEventTarget":267}],238:[function(require,module,exports){
+},{"./Object.assign":173,"./PooledClass":174,"./emptyFunction":261,"./getEventTarget":272}],243:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -43542,7 +45714,7 @@ SyntheticUIEvent.augmentClass(SyntheticFocusEvent, FocusEventInterface);
 
 module.exports = SyntheticFocusEvent;
 
-},{"./SyntheticUIEvent":243}],239:[function(require,module,exports){
+},{"./SyntheticUIEvent":248}],244:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -43588,7 +45760,7 @@ SyntheticEvent.augmentClass(
 
 module.exports = SyntheticInputEvent;
 
-},{"./SyntheticEvent":237}],240:[function(require,module,exports){
+},{"./SyntheticEvent":242}],245:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -43675,7 +45847,7 @@ SyntheticUIEvent.augmentClass(SyntheticKeyboardEvent, KeyboardEventInterface);
 
 module.exports = SyntheticKeyboardEvent;
 
-},{"./SyntheticUIEvent":243,"./getEventCharCode":264,"./getEventKey":265,"./getEventModifierState":266}],241:[function(require,module,exports){
+},{"./SyntheticUIEvent":248,"./getEventCharCode":269,"./getEventKey":270,"./getEventModifierState":271}],246:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -43756,7 +45928,7 @@ SyntheticUIEvent.augmentClass(SyntheticMouseEvent, MouseEventInterface);
 
 module.exports = SyntheticMouseEvent;
 
-},{"./SyntheticUIEvent":243,"./ViewportMetrics":246,"./getEventModifierState":266}],242:[function(require,module,exports){
+},{"./SyntheticUIEvent":248,"./ViewportMetrics":251,"./getEventModifierState":271}],247:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -43804,7 +45976,7 @@ SyntheticUIEvent.augmentClass(SyntheticTouchEvent, TouchEventInterface);
 
 module.exports = SyntheticTouchEvent;
 
-},{"./SyntheticUIEvent":243,"./getEventModifierState":266}],243:[function(require,module,exports){
+},{"./SyntheticUIEvent":248,"./getEventModifierState":271}],248:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -43866,7 +46038,7 @@ SyntheticEvent.augmentClass(SyntheticUIEvent, UIEventInterface);
 
 module.exports = SyntheticUIEvent;
 
-},{"./SyntheticEvent":237,"./getEventTarget":267}],244:[function(require,module,exports){
+},{"./SyntheticEvent":242,"./getEventTarget":272}],249:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -43927,7 +46099,7 @@ SyntheticMouseEvent.augmentClass(SyntheticWheelEvent, WheelEventInterface);
 
 module.exports = SyntheticWheelEvent;
 
-},{"./SyntheticMouseEvent":241}],245:[function(require,module,exports){
+},{"./SyntheticMouseEvent":246}],250:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -44169,7 +46341,7 @@ module.exports = Transaction;
 
 }).call(this,require('_process'))
 
-},{"./invariant":277,"_process":12}],246:[function(require,module,exports){
+},{"./invariant":282,"_process":17}],251:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -44198,7 +46370,7 @@ var ViewportMetrics = {
 
 module.exports = ViewportMetrics;
 
-},{}],247:[function(require,module,exports){
+},{}],252:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -44265,7 +46437,7 @@ module.exports = accumulateInto;
 
 }).call(this,require('_process'))
 
-},{"./invariant":277,"_process":12}],248:[function(require,module,exports){
+},{"./invariant":282,"_process":17}],253:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -44299,7 +46471,7 @@ function adler32(data) {
 
 module.exports = adler32;
 
-},{}],249:[function(require,module,exports){
+},{}],254:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -44331,7 +46503,7 @@ function camelize(string) {
 
 module.exports = camelize;
 
-},{}],250:[function(require,module,exports){
+},{}],255:[function(require,module,exports){
 /**
  * Copyright 2014-2015, Facebook, Inc.
  * All rights reserved.
@@ -44373,7 +46545,7 @@ function camelizeStyleName(string) {
 
 module.exports = camelizeStyleName;
 
-},{"./camelize":249}],251:[function(require,module,exports){
+},{"./camelize":254}],256:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -44417,7 +46589,7 @@ function containsNode(outerNode, innerNode) {
 
 module.exports = containsNode;
 
-},{"./isTextNode":281}],252:[function(require,module,exports){
+},{"./isTextNode":286}],257:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -44503,7 +46675,7 @@ function createArrayFromMixed(obj) {
 
 module.exports = createArrayFromMixed;
 
-},{"./toArray":294}],253:[function(require,module,exports){
+},{"./toArray":299}],258:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -44566,7 +46738,7 @@ module.exports = createFullPageComponent;
 
 }).call(this,require('_process'))
 
-},{"./ReactClass":175,"./ReactElement":199,"./invariant":277,"_process":12}],254:[function(require,module,exports){
+},{"./ReactClass":180,"./ReactElement":204,"./invariant":282,"_process":17}],259:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -44657,7 +46829,7 @@ module.exports = createNodesFromMarkup;
 
 }).call(this,require('_process'))
 
-},{"./ExecutionEnvironment":162,"./createArrayFromMixed":252,"./getMarkupWrap":269,"./invariant":277,"_process":12}],255:[function(require,module,exports){
+},{"./ExecutionEnvironment":167,"./createArrayFromMixed":257,"./getMarkupWrap":274,"./invariant":282,"_process":17}],260:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -44715,7 +46887,7 @@ function dangerousStyleValue(name, value) {
 
 module.exports = dangerousStyleValue;
 
-},{"./CSSProperty":145}],256:[function(require,module,exports){
+},{"./CSSProperty":150}],261:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -44749,7 +46921,7 @@ emptyFunction.thatReturnsArgument = function(arg) { return arg; };
 
 module.exports = emptyFunction;
 
-},{}],257:[function(require,module,exports){
+},{}],262:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -44774,7 +46946,7 @@ module.exports = emptyObject;
 
 }).call(this,require('_process'))
 
-},{"_process":12}],258:[function(require,module,exports){
+},{"_process":17}],263:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -44814,7 +46986,7 @@ function escapeTextContentForBrowser(text) {
 
 module.exports = escapeTextContentForBrowser;
 
-},{}],259:[function(require,module,exports){
+},{}],264:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -44888,7 +47060,7 @@ module.exports = findDOMNode;
 
 }).call(this,require('_process'))
 
-},{"./ReactCurrentOwner":181,"./ReactInstanceMap":209,"./ReactMount":212,"./invariant":277,"./isNode":279,"./warning":296,"_process":12}],260:[function(require,module,exports){
+},{"./ReactCurrentOwner":186,"./ReactInstanceMap":214,"./ReactMount":217,"./invariant":282,"./isNode":284,"./warning":301,"_process":17}],265:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -44947,7 +47119,7 @@ module.exports = flattenChildren;
 
 }).call(this,require('_process'))
 
-},{"./traverseAllChildren":295,"./warning":296,"_process":12}],261:[function(require,module,exports){
+},{"./traverseAllChildren":300,"./warning":301,"_process":17}],266:[function(require,module,exports){
 /**
  * Copyright 2014-2015, Facebook, Inc.
  * All rights reserved.
@@ -44976,7 +47148,7 @@ function focusNode(node) {
 
 module.exports = focusNode;
 
-},{}],262:[function(require,module,exports){
+},{}],267:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -45007,7 +47179,7 @@ var forEachAccumulated = function(arr, cb, scope) {
 
 module.exports = forEachAccumulated;
 
-},{}],263:[function(require,module,exports){
+},{}],268:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -45036,7 +47208,7 @@ function getActiveElement() /*?DOMElement*/ {
 
 module.exports = getActiveElement;
 
-},{}],264:[function(require,module,exports){
+},{}],269:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -45088,7 +47260,7 @@ function getEventCharCode(nativeEvent) {
 
 module.exports = getEventCharCode;
 
-},{}],265:[function(require,module,exports){
+},{}],270:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -45193,7 +47365,7 @@ function getEventKey(nativeEvent) {
 
 module.exports = getEventKey;
 
-},{"./getEventCharCode":264}],266:[function(require,module,exports){
+},{"./getEventCharCode":269}],271:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -45240,7 +47412,7 @@ function getEventModifierState(nativeEvent) {
 
 module.exports = getEventModifierState;
 
-},{}],267:[function(require,module,exports){
+},{}],272:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -45271,7 +47443,7 @@ function getEventTarget(nativeEvent) {
 
 module.exports = getEventTarget;
 
-},{}],268:[function(require,module,exports){
+},{}],273:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -45315,7 +47487,7 @@ function getIteratorFn(maybeIterable) {
 
 module.exports = getIteratorFn;
 
-},{}],269:[function(require,module,exports){
+},{}],274:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -45435,7 +47607,7 @@ module.exports = getMarkupWrap;
 
 }).call(this,require('_process'))
 
-},{"./ExecutionEnvironment":162,"./invariant":277,"_process":12}],270:[function(require,module,exports){
+},{"./ExecutionEnvironment":167,"./invariant":282,"_process":17}],275:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -45510,7 +47682,7 @@ function getNodeForCharacterOffset(root, offset) {
 
 module.exports = getNodeForCharacterOffset;
 
-},{}],271:[function(require,module,exports){
+},{}],276:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -45545,7 +47717,7 @@ function getReactRootElementInContainer(container) {
 
 module.exports = getReactRootElementInContainer;
 
-},{}],272:[function(require,module,exports){
+},{}],277:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -45582,7 +47754,7 @@ function getTextContentAccessor() {
 
 module.exports = getTextContentAccessor;
 
-},{"./ExecutionEnvironment":162}],273:[function(require,module,exports){
+},{"./ExecutionEnvironment":167}],278:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -45622,7 +47794,7 @@ function getUnboundedScrollPosition(scrollable) {
 
 module.exports = getUnboundedScrollPosition;
 
-},{}],274:[function(require,module,exports){
+},{}],279:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -45655,7 +47827,7 @@ function hyphenate(string) {
 
 module.exports = hyphenate;
 
-},{}],275:[function(require,module,exports){
+},{}],280:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -45696,7 +47868,7 @@ function hyphenateStyleName(string) {
 
 module.exports = hyphenateStyleName;
 
-},{"./hyphenate":274}],276:[function(require,module,exports){
+},{"./hyphenate":279}],281:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -45835,7 +48007,7 @@ module.exports = instantiateReactComponent;
 
 }).call(this,require('_process'))
 
-},{"./Object.assign":168,"./ReactCompositeComponent":179,"./ReactEmptyComponent":201,"./ReactNativeComponent":215,"./invariant":277,"./warning":296,"_process":12}],277:[function(require,module,exports){
+},{"./Object.assign":173,"./ReactCompositeComponent":184,"./ReactEmptyComponent":206,"./ReactNativeComponent":220,"./invariant":282,"./warning":301,"_process":17}],282:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -45893,7 +48065,7 @@ module.exports = invariant;
 
 }).call(this,require('_process'))
 
-},{"_process":12}],278:[function(require,module,exports){
+},{"_process":17}],283:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -45958,7 +48130,7 @@ function isEventSupported(eventNameSuffix, capture) {
 
 module.exports = isEventSupported;
 
-},{"./ExecutionEnvironment":162}],279:[function(require,module,exports){
+},{"./ExecutionEnvironment":167}],284:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -45985,7 +48157,7 @@ function isNode(object) {
 
 module.exports = isNode;
 
-},{}],280:[function(require,module,exports){
+},{}],285:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -46028,7 +48200,7 @@ function isTextInputElement(elem) {
 
 module.exports = isTextInputElement;
 
-},{}],281:[function(require,module,exports){
+},{}],286:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -46053,7 +48225,7 @@ function isTextNode(object) {
 
 module.exports = isTextNode;
 
-},{"./isNode":279}],282:[function(require,module,exports){
+},{"./isNode":284}],287:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -46109,7 +48281,7 @@ module.exports = keyMirror;
 
 }).call(this,require('_process'))
 
-},{"./invariant":277,"_process":12}],283:[function(require,module,exports){
+},{"./invariant":282,"_process":17}],288:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -46145,7 +48317,7 @@ var keyOf = function(oneKeyObj) {
 
 module.exports = keyOf;
 
-},{}],284:[function(require,module,exports){
+},{}],289:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -46198,7 +48370,7 @@ function mapObject(object, callback, context) {
 
 module.exports = mapObject;
 
-},{}],285:[function(require,module,exports){
+},{}],290:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -46231,7 +48403,7 @@ function memoizeStringOnly(callback) {
 
 module.exports = memoizeStringOnly;
 
-},{}],286:[function(require,module,exports){
+},{}],291:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -46272,7 +48444,7 @@ module.exports = onlyChild;
 
 }).call(this,require('_process'))
 
-},{"./ReactElement":199,"./invariant":277,"_process":12}],287:[function(require,module,exports){
+},{"./ReactElement":204,"./invariant":282,"_process":17}],292:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -46300,7 +48472,7 @@ if (ExecutionEnvironment.canUseDOM) {
 
 module.exports = performance || {};
 
-},{"./ExecutionEnvironment":162}],288:[function(require,module,exports){
+},{"./ExecutionEnvironment":167}],293:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -46328,7 +48500,7 @@ var performanceNow = performance.now.bind(performance);
 
 module.exports = performanceNow;
 
-},{"./performance":287}],289:[function(require,module,exports){
+},{"./performance":292}],294:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -46356,7 +48528,7 @@ function quoteAttributeValueForBrowser(value) {
 
 module.exports = quoteAttributeValueForBrowser;
 
-},{"./escapeTextContentForBrowser":258}],290:[function(require,module,exports){
+},{"./escapeTextContentForBrowser":263}],295:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -46445,7 +48617,7 @@ if (ExecutionEnvironment.canUseDOM) {
 
 module.exports = setInnerHTML;
 
-},{"./ExecutionEnvironment":162}],291:[function(require,module,exports){
+},{"./ExecutionEnvironment":167}],296:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -46487,7 +48659,7 @@ if (ExecutionEnvironment.canUseDOM) {
 
 module.exports = setTextContent;
 
-},{"./ExecutionEnvironment":162,"./escapeTextContentForBrowser":258,"./setInnerHTML":290}],292:[function(require,module,exports){
+},{"./ExecutionEnvironment":167,"./escapeTextContentForBrowser":263,"./setInnerHTML":295}],297:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -46531,7 +48703,7 @@ function shallowEqual(objA, objB) {
 
 module.exports = shallowEqual;
 
-},{}],293:[function(require,module,exports){
+},{}],298:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -46636,7 +48808,7 @@ module.exports = shouldUpdateReactComponent;
 
 }).call(this,require('_process'))
 
-},{"./warning":296,"_process":12}],294:[function(require,module,exports){
+},{"./warning":301,"_process":17}],299:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -46709,7 +48881,7 @@ module.exports = toArray;
 
 }).call(this,require('_process'))
 
-},{"./invariant":277,"_process":12}],295:[function(require,module,exports){
+},{"./invariant":282,"_process":17}],300:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -46963,7 +49135,7 @@ module.exports = traverseAllChildren;
 
 }).call(this,require('_process'))
 
-},{"./ReactElement":199,"./ReactFragment":205,"./ReactInstanceHandles":208,"./getIteratorFn":268,"./invariant":277,"./warning":296,"_process":12}],296:[function(require,module,exports){
+},{"./ReactElement":204,"./ReactFragment":210,"./ReactInstanceHandles":213,"./getIteratorFn":273,"./invariant":282,"./warning":301,"_process":17}],301:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -47027,10 +49199,10 @@ module.exports = warning;
 
 }).call(this,require('_process'))
 
-},{"./emptyFunction":256,"_process":12}],297:[function(require,module,exports){
+},{"./emptyFunction":261,"_process":17}],302:[function(require,module,exports){
 module.exports = require('./lib/React');
 
-},{"./lib/React":170}],298:[function(require,module,exports){
+},{"./lib/React":175}],303:[function(require,module,exports){
 //     Underscore.js 1.8.3
 //     http://underscorejs.org
 //     (c) 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors

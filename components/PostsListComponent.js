@@ -1,5 +1,6 @@
 var Backbone = require('backbone');
 var React = require('react');
+var _ = require('underscore');
 require('backbone-react-component');
 var PostItemComponent = require('./PostItemComponent');
 
@@ -7,7 +8,7 @@ module.exports = React.createClass({
   mixins: [Backbone.React.Component.mixin],
 
   render: function() {
-    var postItems = this.state.collection.map(function(postItem) {
+    var postItems = _.map(this.state.collection, function (postItem) {
       return <PostItemComponent model={postItem} />
     });
 

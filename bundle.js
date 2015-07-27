@@ -54,6 +54,7 @@ module.exports = Backbone.Collection.extend({
 var Backbone = require('backbone')
 var React = require('react');
 require('backbone-react-component');
+var moment = require('moment');
 
 module.exports = React.createClass({displayName: "exports",
   mixins: [Backbone.React.Component.mixin],
@@ -61,13 +62,17 @@ module.exports = React.createClass({displayName: "exports",
   {
     return (
       React.createElement("li", null, 
-        React.createElement("p", {dangerouslySetInnerHTML: {__html: this.props.model.get('body')}})
+        React.createElement("span", null, 
+          "On ", moment(this.props.model.get('created_at')).format('MMMM Do YYYY, h:mm a'), 
+          ", ", React.createElement("a", {href: this.props.model.get('user').html_url}, this.props.model.get('user').login), " wrote:"
+        ), 
+        React.createElement("span", {dangerouslySetInnerHTML: {__html: this.props.model.get('body')}})
       )
     );
   }
 });
 
-},{"backbone":16,"backbone-react-component":13,"react":302}],5:[function(require,module,exports){
+},{"backbone":16,"backbone-react-component":13,"moment":147,"react":302}],5:[function(require,module,exports){
 var Backbone = require('backbone');
 var React = require('react');
 var _ = require('underscore');
@@ -86,6 +91,7 @@ module.exports = React.createClass({displayName: "exports",
     return (
       React.createElement("div", null, 
         React.createElement("h3", null, "Comments"), 
+        React.createElement("h6", null, React.createElement("a", {href: this.props.post.html_url}, "Leave one")), 
         React.createElement("ul", null, 
           commentItems
         )

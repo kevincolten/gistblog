@@ -3,6 +3,7 @@ var React = require('react');
 var _ = require('underscore');
 require('backbone-react-component');
 var CommentItemComponent = require('./CommentItemComponent');
+var CommentModel = require('../models/CommentModel');
 
 module.exports = React.createClass({
   mixins: [Backbone.React.Component.mixin],

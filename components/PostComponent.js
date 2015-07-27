@@ -11,7 +11,7 @@ module.exports = React.createClass({
       <div>
         <h1>{this.state.model.description}</h1>
         <p dangerouslySetInnerHTML={{__html: this.state.model.content}}></p>
-        <CommentsListComponent collection={comments} />
+        <CommentsListComponent collection={comments} post={this.state.model} />
       </div>
     );
   }

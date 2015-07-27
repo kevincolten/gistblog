@@ -32,7 +32,7 @@ module.exports = Backbone.Controller.extend({
     post.fetch({
       success: function() {
         var postComments = post.get('post_comments');
-        postComments.url += id + '/comments';
+        postComments.url = postComments.url.replace('{gist_id}', id);
         postComments.fetch({
           success: function() {
             React.render(<PostComponent model={post} />, $('#content')[0]);

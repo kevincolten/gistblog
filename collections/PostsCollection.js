@@ -3,7 +3,7 @@ var _ = require('underscore');
 var PostModel = require('../models/PostModel');
 
 module.exports = Backbone.Collection.extend({
-  url: 'https://api.github.com/users/mistakevin/gists',
+  url: 'https://api.github.com/users/kevincolten/gists',
   model: PostModel,
 
   parse: function(collection)
